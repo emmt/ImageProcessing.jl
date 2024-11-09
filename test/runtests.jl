@@ -102,4 +102,62 @@ using Test
             @test CartesianIndex(A) === CartesianIndex(A.coords)
         end
     end
+
+    @testset "Boxes" begin
+        # 0-dimensional box.
+        B = @inferred IndexBox()
+        @test B == @inferred IndexBox{0}()
+        @test size(B) == ()
+        @test length(B) == 1
+        # 1-dimensional box.
+        for rngs in ((0x2:0x3,), (Base.OneTo(7), -1:4,))
+            N = length(rngs)
+            start = map(first, rngs)
+            stop = map(last, rngs)
+            B = @inferred IndexBox(rngs)
+            @test B.indices == rngs
+            @test B === @inferred IndexBox(rngs...)
+            @test B === @inferred IndexBox{N}(rngs)
+            @test B === @inferred IndexBox{N}(rngs...)
+            @test B === @inferred IndexBox(CartesianIndex(start), CartesianIndex(stop))
+            @test B === @inferred IndexBox{N}(CartesianIndex(start), CartesianIndex(stop))
+            @test B === @inferred IndexBox(Point(start), Point(stop))
+            @test B === @inferred IndexBox{N}(Point(start), Point(stop))
+            @test ndims(B) === length(rngs)
+            @test ndims(typeof(B)) === length(rngs)
+            @test size(B) === map(length, rngs)
+            @test length(B) == prod(map(length, rngs); init=1)
+            @test isempty(B) == (length(B) == 0)
+            R = CartesianIndices(rngs)
+            @test B.indices == R.indices
+            @test R == @inferred CartesianIndices(B)
+            @test B == @inferred IndexBox(B)
+            @test B === @inferred convert(IndexBox, B)
+            @test B === @inferred convert(IndexBox{N}, B)
+            @test B === @inferred convert(IndexBox, R)
+            @test B === @inferred convert(IndexBox{N}, R)
+            @test R == @inferred convert(CartesianIndices, B)
+            @test R == @inferred convert(CartesianIndices{N}, B)
+
+            @test first(B) === CartesianIndex(start)
+            @test last(B) === CartesianIndex(stop)
+            @test first(CartesianIndex, B) === CartesianIndex(start)
+            @test last(CartesianIndex, B) === CartesianIndex(stop)
+            @test first(CartesianIndex{N}, B) === CartesianIndex(start)
+            @test last(CartesianIndex{N}, B) === CartesianIndex(stop)
+            @test_throws Exception first(CartesianIndex{N+1}, B)
+            @test_throws Exception last(CartesianIndex{N+1}, B)
+            @test first(Point, B) === Point{N,Int}(start)
+            @test last(Point, B) === Point{N,Int}(stop)
+            @test first(Point{N}, B) === Point{N,Int}(start)
+            @test last(Point{N}, B) === Point{N,Int}(stop)
+            @test first(Point{N,Int}, B) === Point{N,Int}(start)
+            @test last(Point{N,Int}, B) === Point{N,Int}(stop)
+            @test first(Point{N,Float32}, B) === Point{N,Float32}(start)
+            @test last(Point{N,Float32}, B) === Point{N,Float32}(stop)
+            @test_throws Exception first(Point{N+1}, B)
+            @test_throws Exception last(Point{N+1}, B)
+        end
+    end
 end
+nothing

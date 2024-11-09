@@ -4,5 +4,5 @@
 
 The `ImageProcessing` package provides methods and types for processing *images* in
 [Julia](https://julialang.org/). Following the conventions in
-[`JuliaImages`](https://juliaimages.org), *images* in `ImageProcessing` can be any
-multi-dimensional abstract arrays with numerical values, not just 2-dimensional arrays.
+[`JuliaImages`](https://juliaimages.org), *images* can be any multi-dimensional abstract
+arrays with numerical values, not just 2-dimensional arrays.
