@@ -1,5 +1,13 @@
 module ImageProcessing
 
-# Write your package code here.
+export
+    Point,
+    nearest
 
-end
+using TypeUtils
+
+include("types.jl")
+include("utils.jl")
+include("points.jl")
+
+end # module
