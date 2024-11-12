@@ -13,7 +13,9 @@ struct Point{N,T}
 end
 
 struct IndexBox{N}
-    indices::NTuple{N,UnitRange{Int}} # same member name in CartesianIndices
+    # The member name is the same as for `CartesianIndices` to help generalize code. The
+    # other possibility is to call `EasyRanges.ranges`.
+    indices::NTuple{N,UnitRange{Int}}
 
     # The following inner constructor relies on the `convert` base method to convert the
     # index ranges if needed.

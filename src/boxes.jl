@@ -34,7 +34,7 @@ IndexBox{N}(rngs::Vararg{ArrayAxisLike,N}) where {N} = IndexBox(rngs)
 IndexBox(A::IndexBox) = A
 IndexBox{N}(A::IndexBox{N}) where {N} = A
 
-# Conversion to/from `IndexBox` fall back to calling the constructor.
+# Conversion to `IndexBox` falls back to calling the constructor.
 Base.convert(::Type{T}, x::T) where {T<:IndexBox} = x
 Base.convert(::Type{T}, x) where {T<:IndexBox} = T(x)
 
@@ -42,7 +42,7 @@ Base.convert(::Type{T}, x) where {T<:IndexBox} = T(x)
 IndexBox(A::CartesianIndices) = IndexBox(A.indices)
 IndexBox{N}(A::CartesianIndices{N}) where {N} = IndexBox(A)
 
-# Convert to CartesianIndices
+# Convert to CartesianIndices.
 Base.CartesianIndices(A::IndexBox) = CartesianIndices(A.indices)
 Base.CartesianIndices{N}(A::IndexBox{N}) where {N} = CartesianIndices(A)
 Base.convert(::Type{T}, x::IndexBox) where {T<:CartesianIndices} = T(x)

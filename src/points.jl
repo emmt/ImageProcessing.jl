@@ -6,19 +6,20 @@
 build a `N`-dimensional point of coordinates `coords...` stored as values of type `T`.
 Unspecified parameters `N` or `T` are inferred from `coords...`.
 
-Coordinates may also be given by a tuple of values or by a Cartesian index. Conversely, a
-point `A` can be converted into a tuple or into a Cartesian index by calling their
-constructors: `Tuple(A)` or `CartesianIndex(A)`.
+Coordinates may also be given by a `N`-tuple or by a Cartesian index. Conversely, a point
+`A` can be converted into a `N`-tuple or into a Cartesian index by calling the
+corresponding constructor: `Tuple(A)` or `CartesianIndex(A)`.
 
-For a point `A`, `A.coords`, `values(A)`, and `Tuple(A)` yields the `N`-tuple of
-coordinates of `A`, all of type `T = eltype(A)` and with `N = length(A)`.
+For a point `A`, the `N`-tuple of coordinates of `A` is retrieved by `A.coords`,
+`values(A)`, or `Tuple(A)`. The type and number of coordinates are given by `T =
+eltype(A)` and `N = length(A)`.
 
 A point `A` may be indexed to retrieve its individual coordinates: the syntax `A[i]` is
-equivalent to `A.coords[i]` with `i` an integer index or an index range.
+equivalent to `A.coords[i]` with `i` an integer index or an index range. For example,
+`A[2:3]` yields a tuple of the 2nd to 3rd coordinates of `A`.
 
-A point `A` may be used as an iterator over its coordinates. For example, `A[2:3]` yields
-a tuple of the 2nd to 3rd coordinates of `A` and `x,y,z = A` can be written to extract the
-coordinates of a 3-dimensional point `A`.
+A point may be used as an iterator over its coordinates. For example, `x,y,z = A` can be
+written to extract the coordinates of a 3-dimensional point `A`.
 
 A number of operations are implemented for points: negation, addition, subtraction, and
 multiplication or division by a scalar number.
@@ -56,7 +57,7 @@ Point{N,T}(x::Point{N}) where {N,T} = Point{N,T}(Tuple(x))
 TypeUtils.convert_eltype(::Type{T}, x::Point{N,T}) where {N,T} = x
 TypeUtils.convert_eltype(::Type{T}, x::Point{N}) where {N,T} = Point{N,T}(x)
 
-# Base `convert` method fall back to calling the constructor.
+# Base `convert` method falls back to calling the constructor.
 Base.convert(::Type{T}, x::T) where {T<:Point} = x
 Base.convert(::Type{T}, x) where {T<:Point} = T(x)
 
