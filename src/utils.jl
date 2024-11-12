@@ -7,6 +7,10 @@ yields `x` rounded to the nearest value or instance of type `T`.
 nearest(::Type{T}, x::T) where {T} = x
 nearest(::Type{T}, x) where {T} = as(T, x) # by default, simply convert...
 
+# Real to nearest integer.
+nearest(::Type{T}, x::AbstractFloat) where {T<:Integer} = round(T, x)
+nearest(::Type{T}, x::Real         ) where {T<:Integer} = round(T, float(x))
+
 """
     nearest(T::Type) -> f
 

@@ -86,34 +86,6 @@ Base.firstindex(A::Point) = 1
 Base.lastindex(A::Point) = length(A)
 Base.eachindex(A::Point) = Base.OneTo(length(A))
 Base.keys(A::Point) = eachindex(A)
-
-# Rounding to nearest coordinates.
-Base.round(::Type{Point{N,T}}, A::Point{N,T}, r::RoundingMode = RoundNearest) where {T,N} = A
-Base.round(::Type{Point{N,T}}, A::Point{N}, r::RoundingMode = RoundNearest) where {T,N} =
-    Point{N,T}(round(NTuple{N,T}, A, r))
-Base.round(::Type{CartesianIndex{N}}, A::Point{N}, r::RoundingMode = RoundNearest) where {N} =
-    round(CartesianIndex, A, r)
-Base.round(::Type{CartesianIndex}, A::Point{N}, r::RoundingMode = RoundNearest) where {N} =
-    CartesianIndex(round(NTuple{N,Int}, A, r))
-Base.round(::Type{NTuple{N,T}}, A::Point{N,T}, r::RoundingMode = RoundNearest) where {T,N} = A.coords
-Base.round(::Type{NTuple{N,T}}, A::Point{N}, r::RoundingMode = RoundNearest) where {T,N} =
-    map(x -> round(T, x, r), A.coords)
-
-# Real to nearest integer.
-nearest(::Type{T}, x::AbstractFloat) where {T<:Integer} = round(T, x)
-nearest(::Type{T}, x::Real         ) where {T<:Integer} = round(T, float(x))
-
-# N-dimensional coordinates to Cartesian index.
-nearest(::Type{CartesianIndex}, A::CartesianIndex) = A
-nearest(::Type{CartesianIndex}, A::Point) = nearest(CartesianIndex, A.coords)
-nearest(::Type{CartesianIndex}, A::NTuple{N,Integer}) where {N} = CartesianIndex(A)
-nearest(::Type{CartesianIndex}, A::NTuple{N,Real}) where {N} =
-    CartesianIndex(map(nearest(Int), A))
-
-# Get rid of the `N` parameter in `CartesianIndex{N}`.
-nearest(::Type{CartesianIndex{N}}, A::CartesianIndex{N}) where {N} = A
-nearest(::Type{CartesianIndex{N}}, A::NTuple{N}        ) where {N} = nearest(CartesianIndex, A)
-nearest(::Type{CartesianIndex{N}}, A::Point{N}         ) where {N} = nearest(CartesianIndex, A)
 Base.values(A::Point) = Tuple(A)
 
 # Conversion of points to tuples. The `Point` constructors aloready implement conversion
@@ -124,29 +96,97 @@ Base.NTuple{N}(x::Point{N}) where {N} = Tuple(x)
 Base.NTuple{N,T}(x::Point{N}) where {N,T} = NTuple{N,T}(Tuple(x))
 Base.convert(::Type{T}, x::Point) where {T<:Tuple} = convert(T, Tuple(x))
 
+struct Round{T,R<:RoundingMode}
+    Round(::Type{T}, r::R) where {T,R<:RoundingMode} = new{T,R}()
+end
+(::Round{T,R})(x) where {T,R} = round(T, x, R())
+
+# Rounding coordinates to a tuple.
+Base.round(::Type{Tuple}, x::Point{N,T}, r::RoundingMode = RoundNearest) where {N,T} =
+    round(NTuple{N,T}, x, r)
+Base.round(::Type{NTuple}, x::Point{N,T}, r::RoundingMode = RoundNearest) where {N,T} =
+    round(NTuple{N,T}, x, r)
+Base.round(::Type{NTuple{N}}, x::Point{N,T}, r::RoundingMode = RoundNearest) where {N,T} =
+    round(Point{N,T}, x, r)
+Base.round(::Type{NTuple{N,T}}, x::Point{N}, r::RoundingMode = RoundNearest) where {N,T} =
+    map(Round(T,r), Tuple(x))
+Base.round(::Type{NTuple{N,T}}, x::Point{N,T}, r::RoundingMode = RoundNearest) where {T<:Integer,N} =
+    Tuple(x)
+
+# Rounding coordinates to a point.
+Base.round(x::Point{N,T}, r::RoundingMode = RoundNearest) where {N,T} = round(Point{N,T}, x, r)
+Base.round(x::Point{N,<:Integer}, r::RoundingMode = RoundNearest) where {N} = x
+Base.round(::Type{Point}, x::Point{N,T}, r::RoundingMode = RoundNearest) where {N,T} =
+    round(Point{N,T}, x, r)
+Base.round(::Type{Point{N}}, x::Point{N,T}, r::RoundingMode = RoundNearest) where {N,T} =
+    round(Point{N,T}, x, r)
+Base.round(::Type{Point{N,T}}, x::Point{N}, r::RoundingMode = RoundNearest) where {N,T} =
+    Point(round(NTuple{N,T}, x, r))
+
+# Rounding coordinates to a Cartesian index.
+Base.round(::Type{CartesianIndex}, x::Point{N}, r::RoundingMode = RoundNearest) where {N} =
+    CartesianIndex(round(NTuple{N,Int}, x, r))
+Base.round(::Type{CartesianIndex{N}}, x::Point{N}, r::RoundingMode = RoundNearest) where {N} =
+    round(CartesianIndex, x, r)
+
+for (f, r) in ((:ceil, :RoundUp), (:floor, :RoundDown))
+    @eval begin
+        Base.$f(x::Point) = round(x, $r)
+
+        Base.$f(::Type{Point},      x::Point{N,T}) where {N,T} = round(Point{N,T}, x, $r)
+        Base.$f(::Type{Point{N}},   x::Point{N,T}) where {N,T} = round(Point{N,T}, x, $r)
+        Base.$f(::Type{Point{N,T}}, x::Point{N}  ) where {N,T} = round(Point{N,T}, x, $r)
+
+        Base.$f(::Type{Tuple},       x::Point{N,T}) where {N,T} = round(NTuple{N,T}, x, $r)
+        Base.$f(::Type{NTuple},      x::Point{N,T}) where {N,T} = round(NTuple{N,T}, x, $r)
+        Base.$f(::Type{NTuple{N}},   x::Point{N,T}) where {N,T} = round(NTuple{N,T}, x, $r)
+        Base.$f(::Type{NTuple{N,T}}, x::Point{N}  ) where {N,T} = round(NTuple{N,T}, x, $r)
+
+        Base.$f(::Type{CartesianIndex},    x::Point{N}) where {N} = round(CartesianIndex, x, $r)
+        Base.$f(::Type{CartesianIndex{N}}, x::Point{N}) where {N} = round(CartesianIndex, x, $r)
+    end
+end
+
+# To nearest Cartesian index.
+nearest(::Type{CartesianIndex{N}}, x::CartesianIndex{N}) where {N} = x
+nearest(::Type{CartesianIndex{N}}, x::NTuple{N}        ) where {N} = nearest(CartesianIndex, x)
+nearest(::Type{CartesianIndex{N}}, x::Point{N}         ) where {N} = nearest(CartesianIndex, x)
+nearest(::Type{CartesianIndex},    x::CartesianIndex   ) = x
+nearest(::Type{CartesianIndex},    x::Point            ) = nearest(CartesianIndex, Tuple(x))
+nearest(::Type{CartesianIndex},    x::NTuple{N,Integer}) where {N} = CartesianIndex(x)
+nearest(::Type{CartesianIndex},    x::NTuple{N,Real}   ) where {N} =
+    CartesianIndex(map(nearest(Int), x))
 
 # To nearest point.
-nearest(::Type{Point{N,T}}, A::Point{N,T}       ) where {N,T} = A
-nearest(::Type{Point{N,T}}, A::Point{N}         ) where {N,T} = Point{N,T}(map(nearest(T), A.coords))
-nearest(::Type{Point{N,T}}, A::NTuple{N,T}      ) where {N,T} = Point{N,T}(A)
-nearest(::Type{Point{N,T}}, A::NTuple{N}        ) where {N,T} = Point{N,T}(map(nearest(T), A))
-nearest(::Type{Point{N,T}}, A::CartesianIndex{N}) where {N,T} = Point{N,T}(A)
+nearest(::Type{Point},      x::Point) = x
+nearest(::Type{Point},      x::Union{CartesianIndex,NTuple}) = Point(x)
+nearest(::Type{Point{N}},   x::Point{N}) where {N} = x
+nearest(::Type{Point{N}},   x::Union{CartesianIndex{N},NTuple{N}}) where {N} = Point(x)
+nearest(::Type{Point{N,T}}, x::Point{N,T}       ) where {N,T} = x
+nearest(::Type{Point{N,T}}, x::Point{N}         ) where {N,T} = Point{N,T}(map(nearest(T), Tuple(x)))
+nearest(::Type{Point{N,T}}, x::NTuple{N,T}      ) where {N,T} = Point{N,T}(x)
+nearest(::Type{Point{N,T}}, x::NTuple{N}        ) where {N,T} = Point{N,T}(map(nearest(T), x))
+nearest(::Type{Point{N,T}}, x::CartesianIndex{N}) where {N,T} = Point{N,T}(x)
 
 # To nearest N-tuple.
-nearest(::Type{NTuple{N,T}},   A::Point{N,T}       ) where {N,T} = Tuple(A)
-nearest(::Type{NTuple{N,T}},   A::Point{N}         ) where {N,T} = map(nearest(T), Tuple(A))
-nearest(::Type{NTuple{N,T}},   A::NTuple{N,T}      ) where {N,T} = A
-nearest(::Type{NTuple{N,T}},   A::NTuple{N}        ) where {N,T} = map(nearest(T), A)
-nearest(::Type{NTuple{N,T}},   A::CartesianIndex{N}) where {N,T} = nearest(NTuple{N,T}, Tuple(A))
-nearest(::Type{NTuple{N,Int}}, A::CartesianIndex{N}) where {N}   = Tuple(A)
+nearest(::Type{Tuple},         x::Point            ) = Tuple(x)
+nearest(::Type{Tuple},         x::CartesianIndex   ) = Tuple(x)
+nearest(::Type{Tuple},         x::Tuple            ) = x
 
-# Equality.
-Base.:(==)(A::Point, B::Point) = false
-Base.:(==)(A::Point{N}, B::Point{N}) where {N} = A.coords == B.coords
+nearest(::Type{NTuple},        x::Point            ) = Tuple(x)
+nearest(::Type{NTuple},        x::CartesianIndex   ) = Tuple(x)
+nearest(::Type{NTuple},        x::NTuple           ) = x
 
-# Ordering.
-Base.isless(A::Point, B::Point) = false
-Base.isless(A::Point{N}, B::Point{N}) where {N} = A.coords < B.coords
+nearest(::Type{NTuple{N}},     x::Point{N}         ) where {N} = Tuple(x)
+nearest(::Type{NTuple{N}},     x::CartesianIndex{N}) where {N} = Tuple(x)
+nearest(::Type{NTuple{N}},     x::NTuple{N}        ) where {N} = x
+
+nearest(::Type{NTuple{N,T}},   x::Point{N,T}       ) where {N,T} = Tuple(x)
+nearest(::Type{NTuple{N,T}},   x::Point{N}         ) where {N,T} = nearest(NTuple{N,T}, Tuple(x))
+nearest(::Type{NTuple{N,Int}}, x::CartesianIndex{N}) where {N}   = Tuple(x)
+nearest(::Type{NTuple{N,T}},   x::CartesianIndex{N}) where {N,T} = nearest(NTuple{N,T}, Tuple(x))
+nearest(::Type{NTuple{N,T}},   x::NTuple{N,T}      ) where {N,T} = x
+nearest(::Type{NTuple{N,T}},   x::NTuple{N}        ) where {N,T} = map(nearest(T), x)
 
 # Unary plus and minus.
 Base.:(+)(a::Point) = a
