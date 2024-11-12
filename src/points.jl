@@ -226,3 +226,6 @@ Base.zero(::Type{Point{N,T}}) where {N,T} = Point{N,T}(ntuple(Returns(zero(T)), 
 # one(x) yields a multiplicative identity for x.
 Base.one(x::Point) = one(typeof(x))
 Base.one(::Type{Point{N,T}}) where {N,T} = one(T)
+
+# Extend `EasyRanges` package.
+EasyRanges.normalize(P::Point{N,<:Integer}) where {N} = CartesianIndex(P)

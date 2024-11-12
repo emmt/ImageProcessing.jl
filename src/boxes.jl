@@ -107,3 +107,7 @@ Base.zeros(B::IndexBox) = zeros(Float64, B)
 
 Base.ones(::Type{T}, B::IndexBox) where {T} = fill(one(T), B)
 Base.ones(B::IndexBox) = ones(Float64, B)
+
+# Extend `EasyRanges` package.
+EasyRanges.normalize(B::IndexBox) = CartesianIndices(B)
+EasyRanges.ranges(B::IndexBox) = B.indices

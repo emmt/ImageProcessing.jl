@@ -6,6 +6,7 @@ export
     nearest
 
 using TypeUtils
+using EasyRanges
 using OffsetArrays
 
 include("types.jl")
