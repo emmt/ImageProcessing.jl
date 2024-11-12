@@ -52,7 +52,7 @@ Point(coords::Tuple{}) = error("missing type parameter `T` for 0-dimensional poi
 Point(x::Point) = x
 Point{N}(x::Point{N}) where {N} = x
 Point{N,T}(x::Point{N,T}) where {N,T} = x
-Point{N,T}(x::Point{N}) where {N,T} = Point{N,T}(x.coords)
+Point{N,T}(x::Point{N}) where {N,T} = Point{N,T}(Tuple(x))
 TypeUtils.convert_eltype(::Type{T}, x::Point{N,T}) where {N,T} = x
 TypeUtils.convert_eltype(::Type{T}, x::Point{N}) where {N,T} = Point{N,T}(x)
 
@@ -61,8 +61,11 @@ Base.convert(::Type{T}, x::T) where {T<:Point} = x
 Base.convert(::Type{T}, x) where {T<:Point} = T(x)
 
 # A point with integer coordinates can be converted into a Cartesian index and conversely.
-Base.CartesianIndex(point::Point{N,<:Integer}) where {N} = CartesianIndex(point.coords)
-Base.CartesianIndex{N}(point::Point{N,<:Integer}) where {N} = CartesianIndex(point)
+Base.CartesianIndex(x::Point{N,<:Integer}) where {N} = CartesianIndex(Tuple(x))
+Base.CartesianIndex{N}(x::Point{N,<:Integer}) where {N} = CartesianIndex(x)
+Base.convert(::Type{CartesianIndex}, x::Point{N,<:Integer}) where {N} = CartesianIndex(x)
+Base.convert(::Type{CartesianIndex{N}}, x::Point{N,<:Integer}) where {N} = CartesianIndex(x)
+
 Point(index::CartesianIndex{N}) where {N} = Point{N,Int}(Tuple(index))
 Point{N}(index::CartesianIndex{N}) where {N} = Point{N}(Tuple(index))
 Point{N,T}(index::CartesianIndex{N}) where {N,T} = Point{N,T}(Tuple(index))
@@ -72,7 +75,7 @@ Point{N,T}(index::CartesianIndex{N}) where {N,T} = Point{N,T}(Tuple(index))
 Base.eltype(A::Point) = eltype(typeof(A))
 Base.eltype(::Type{Point{N,T}}) where {T,N} = T
 Base.length(A::Point{N,T}) where {T,N} = N
-@inline Base.getindex(A::Point, i) = getindex(A.coords, i)
+@inline Base.getindex(A::Point, i) = getindex(Tuple(A), i)
 Base.IteratorSize(::Type{<:Point}) = Base.HasLength()
 Base.IteratorEltype(::Type{<:Point}) = Base.HasEltype()
 @inline Base.iterate(@nospecialize(iter::Point), i::Int = 1) =
@@ -82,9 +85,6 @@ Base.firstindex(A::Point) = 1
 Base.lastindex(A::Point) = length(A)
 Base.eachindex(A::Point) = Base.OneTo(length(A))
 Base.keys(A::Point) = eachindex(A)
-Base.values(A::Point) = A.coords
-
-Base.Tuple(x::Point) = getfield(x, :coords)
 
 # Rounding to nearest coordinates.
 Base.round(::Type{Point{N,T}}, A::Point{N,T}, r::RoundingMode = RoundNearest) where {T,N} = A
@@ -113,6 +113,16 @@ nearest(::Type{CartesianIndex}, A::NTuple{N,Real}) where {N} =
 nearest(::Type{CartesianIndex{N}}, A::CartesianIndex{N}) where {N} = A
 nearest(::Type{CartesianIndex{N}}, A::NTuple{N}        ) where {N} = nearest(CartesianIndex, A)
 nearest(::Type{CartesianIndex{N}}, A::Point{N}         ) where {N} = nearest(CartesianIndex, A)
+Base.values(A::Point) = Tuple(A)
+
+# Conversion of points to tuples. The `Point` constructors aloready implement conversion
+# from tuples.
+Base.Tuple(x::Point) = x.coords
+Base.NTuple(x::Point) = Tuple(x)
+Base.NTuple{N}(x::Point{N}) where {N} = Tuple(x)
+Base.NTuple{N,T}(x::Point{N}) where {N,T} = NTuple{N,T}(Tuple(x))
+Base.convert(::Type{T}, x::Point) where {T<:Tuple} = convert(T, Tuple(x))
+
 
 # To nearest point.
 nearest(::Type{Point{N,T}}, A::Point{N,T}       ) where {N,T} = A
@@ -139,19 +149,34 @@ Base.isless(A::Point{N}, B::Point{N}) where {N} = A.coords < B.coords
 
 # Unary plus and minus.
 Base.:(+)(a::Point) = a
-Base.:(-)(a::Point) = Point(map(-, a.coords))
+Base.:(-)(a::Point) = Point(map(-, Tuple(a)))
 
 # Multiplication by a scalar.
-Base.:(*)(a::Number, b::Point) = Point(map(Base.Fix1(*, a), b.coords))
+Base.:(*)(a::Number, b::Point) = Point(map(Base.Fix1(*, a), Tuple(b)))
 Base.:(*)(a::Point, b::Number) = b*a
 
 # Division by a scalar.
-Base.:(/)(a::Point, b::Number) = Point(map(Base.Fix2(/, b), a.coords))
+Base.:(/)(a::Point, b::Number) = Point(map(Base.Fix2(/, b), Tuple(a)))
 Base.:(\)(a::Number, b::Point) = b/a
 
-# Addition and subtraction of points.
-Base.:(+)(a::Point{N}, b::Point{N}) where {N} = Point(map(+, a.coords, b.coords))
-Base.:(-)(a::Point{N}, b::Point{N}) where {N} = Point(map(-, a.coords, b.coords))
+# Binary operations between point-like objects.
+for (LType, RType) in ((:Point, :Point), (:Point, :CartesianIndex), (:CartesianIndex, :Point))
+    @eval begin
+        # Addition.
+        Base.:(+)(A::$(LType){N}, B::$(RType){N}) where {N} = Point(map(+, Tuple(A), Tuple(B)))
+
+        # Subtraction.
+        Base.:(-)(A::$(LType){N}, B::$(RType){N}) where {N} = Point(map(-, Tuple(A), Tuple(B)))
+
+        # Equality.
+        Base.:(==)(A::$(LType), B::$(RType)) = false
+        Base.:(==)(A::$(LType){N}, B::$(RType){N}) where {N} = Tuple(A) == Tuple(B)
+
+        # Ordering.
+        Base.isless(A::$(LType), B::$(RType)) = false
+        Base.isless(A::$(LType){N}, B::$(RType){N}) where {N} = Tuple(A) < Tuple(B)
+    end
+end
 
 # zero(x) is the neutral element for the addition.
 Base.zero(x::Point) = zero(typeof(x))
