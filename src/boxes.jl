@@ -6,8 +6,8 @@ of dimensions. This is needed to simplify having type stable vectors of boxes.
 
 """
 const BoxRange = UnitRange{Int}
-const BoxRanges{N} = NTuple{N,BoxRange}
 @assert isconcretetype(BoxRange)
+const BoxRanges{N} = NTuple{N,BoxRange}
 
 """
     B = IndexBox(rngs...)
@@ -45,7 +45,8 @@ IndexBox{N}(A::CartesianIndices{N}) where {N} = IndexBox(A)
 # Convert to CartesianIndices.
 Base.CartesianIndices(A::IndexBox) = CartesianIndices(A.indices)
 Base.CartesianIndices{N}(A::IndexBox{N}) where {N} = CartesianIndices(A)
-Base.convert(::Type{T}, x::IndexBox) where {T<:CartesianIndices} = T(x)
+Base.convert(::Type{CartesianIndices}, x::IndexBox) = CartesianIndices(x)
+Base.convert(::Type{T}, x::IndexBox{N}) where {N,T<:CartesianIndices{N}} = T(x)
 
 """
     B = IndexBox(arr)
@@ -107,6 +108,49 @@ Base.zeros(B::IndexBox) = zeros(Float64, B)
 
 Base.ones(::Type{T}, B::IndexBox) where {T} = fill(one(T), B)
 Base.ones(B::IndexBox) = ones(Float64, B)
+
+# `CartesianIndices` is more general than `IndexBox`. Both have `Int`-valued ranges.
+Base.promote_rule(::Type{T}, ::Type{IndexBox{N}}) where {N,T<:CartesianIndices{N}} = T
+
+# Inclusion `A ∈ B`.
+Base.in(A::Point, B::Union{IndexBox,CartesianIndices}) = false
+Base.in(A::Point{N,<:Integer}, B::Union{IndexBox{N},CartesianIndices{N}}) where {N} =
+    mapreduce(in, &, A.coords, B.indices; init=true)
+Base.in(A::CartesianIndex, B::IndexBox) = false
+Base.in(A::CartesianIndex{N}, B::IndexBox{N}) where {N} =
+    mapreduce(in, &, Tuple(A), B.indices; init=true)
+
+# Intersection `A ∩ B` when, at least, one of `A` or `B` is an index box. When `A` or `B`
+# is a `CartesianIndinces`, the result must be a `CartesianIndices` as it is more general.
+# Note that `A ∩ B = B ∩ A` must hold.
+Base.intersect(A::IndexBox{N}, B::IndexBox{N}) where {N} =
+    IndexBox(map(intersect, A.indices, B.indices))
+Base.intersect(A::CartesianIndices{N}, B::IndexBox{N}) where {N} = intersect(B, A)
+Base.intersect(A::IndexBox{N}, B::CartesianIndices{N}) where {N} =
+    CartesianIndices(map(intersect, A.indices, B.indices)) # FIXME: forward?
+
+# `A ⊆ B`, when `A` is an `IndexBox` and `B` an `IndexBox` or a `CartesianIndices`.
+Base.issubset(A::IndexBox, B::Union{IndexBox,CartesianIndices}) = false
+Base.issubset(A::IndexBox{N}, B::Union{IndexBox{N},CartesianIndices{N}}) where {N} =
+    mapreduce(issubset, &, A.indices, B.indices; init=true)
+
+# Shifting of Cartesian index ranges by adding/subtracting a point.
+Base.:(+)(A::Point{N,<:Integer}, B::CartesianIndices{N}) where {N} = B + A
+Base.:(+)(A::Union{CartesianIndex{N},Point{N,<:Integer}}, B::IndexBox{N}) where {N} = B + A
+Base.:(+)(A::IndexBox{N}, B::Union{CartesianIndex{N},Point{N,<:Integer}}) where {N} =
+    IndexBox(map(EasyRanges.plus, A.indices, Tuple(B)))
+Base.:(+)(A::CartesianIndices{N}, B::Point{N,<:Integer}) where {N} =
+    IndexBox(map(EasyRanges.forward∘EasyRanges.plus, A.indices, Tuple(B)))
+
+Base.:(-)(A::IndexBox{N}, B::Union{CartesianIndex{N},Point{N,<:Integer}}) where {N} =
+    IndexBox(map(EasyRanges.minus, A.indices, Tuple(B)))
+Base.:(-)(A::Union{CartesianIndex{N},Point{N,<:Integer}}, B::IndexBox{N}) where {N} =
+    IndexBox(map(EasyRanges.forward∘EasyRanges.minus, Tuple(B), A.indices))
+
+Base.:(-)(A::CartesianIndices{N}, B::Point{N,<:Integer}) where {N} =
+    CartesianIndices(map(EasyRanges.forward∘EasyRanges.minus, A.indices, Tuple(B)))
+Base.:(-)(A::Point{N,<:Integer}, B::CartesianIndices{N}) where {N} =
+    CartesianIndices(map(EasyRanges.forward∘EasyRanges.minus, Tuple(A), B.indices))
 
 # Extend `EasyRanges` package.
 EasyRanges.normalize(B::IndexBox) = CartesianIndices(B)
