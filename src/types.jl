@@ -1,8 +1,23 @@
+const ArraySizeLike{N} = NTuple{N,Integer}
+const ArraySize{N} = NTuple{N,Int} # FIXME: Dims{N}
+
 const ArrayAxisLike = AbstractUnitRange{<:Integer}
 const ArrayAxis = AbstractUnitRange{Int}
 
 const ArrayAxesLike{N} = NTuple{N,ArrayAxisLike}
 const ArrayAxes{N} = NTuple{N,ArrayAxis}
+
+const ArraySizeOrAxesLike{N} = Union{ArraySizeLike{N},ArrayAxesLike{N}}
+
+"""
+    ImageProcessing.unspecified
+    ImageProcessing.Unspecified()
+
+singleton object to represent an unspecified optional argument or keyword.
+
+"""
+struct Unspecified end
+const unspecified = Unspecified()
 
 struct Point{N,T}
     coords::NTuple{N,T}

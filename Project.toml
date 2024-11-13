@@ -6,11 +6,13 @@ version = "0.1.0"
 [deps]
 EasyRanges = "bd0ea217-0861-4661-bed1-3e8ea598dd25"
 OffsetArrays = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
+StructuredArrays = "2e8cd123-6858-488d-b42d-068777248635"
 TypeUtils = "c3b1956e-8857-4d84-9b79-890df85b1e67"
 
 [compat]
 EasyRanges = "0.1.3"
 OffsetArrays = "1.14.1"
+StructuredArrays = "0.2.18"
 TypeUtils = "1.4.0"
 julia = "1"
 
