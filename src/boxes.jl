@@ -94,7 +94,7 @@ Base.getindex(A::AbstractArray{<:Any,N}, B::IndexBox{N}) where {N} =
 Base.ndims(B::IndexBox) = ndims(typeof(B))
 Base.ndims(::Type{<:IndexBox{N}}) where {N} = N
 Base.size(B::IndexBox) = map(length, B.indices)
-Base.length(B::IndexBox) = prod(size(B); init=1)
+Base.length(B::IndexBox) = prod(size(B))
 
 OffsetArrays.OffsetArray{T}(::typeof(undef), B::IndexBox) where {T} =
     OffsetArray(Array{T}(undef, size(B)), B.indices)

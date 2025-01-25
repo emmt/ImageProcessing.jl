@@ -126,7 +126,7 @@ using Test
             @test ndims(B) === length(rngs)
             @test ndims(typeof(B)) === length(rngs)
             @test size(B) === map(length, rngs)
-            @test length(B) == prod(map(length, rngs); init=1)
+            @test length(B) == prod(map(length, rngs))
             @test isempty(B) == (length(B) == 0)
             R = CartesianIndices(rngs)
             @test B.indices == R.indices
