@@ -96,6 +96,16 @@ Base.NTuple{N}(x::Point{N}) where {N} = Tuple(x)
 Base.NTuple{N,T}(x::Point{N}) where {N,T} = NTuple{N,T}(Tuple(x))
 Base.convert(::Type{T}, x::Point) where {T<:Tuple} = convert(T, Tuple(x))
 
+Base.show(io::IO, x::Point) = show(io, MIME"text/plain"(), x)
+function Base.show(io::IO, ::MIME"text/plain", x::Point{N}) where {N}
+    print(io, "Point{", N, "}{")
+    for i in 1:N
+        i > 1 && print(io, ", ")
+        show(io, x[i])
+    end
+    print(io, ")")
+end
+
 struct Round{T,R<:RoundingMode}
     Round(::Type{T}, r::R) where {T,R<:RoundingMode} = new{T,R}()
 end

@@ -19,6 +19,10 @@ retrieved by `B.indices` or `Tuple(B)`.
 A box can be built from or converted into a `CartesianIndices` object but has unit-step
 ranges.
 
+`IndexBox` cannot just be an alias to `CartesianIndices` (with unit range indices) because
+some operations (like scaling or shifting) are implemented for `IndexBox` that do not
+apply for `CartesianIndices`.
+
 A box may also be built given the first and last of its multi-dimensioanl indices:
 
     B = IndexBox(start, stop)
@@ -81,6 +85,19 @@ for func in (:first, :last)
             Base.$func(::Type{$class{N}}, A::IndexBox{N}) where {N} = $func($class, A)
         end
     end
+end
+
+Base.show(io::IO, x::IndexBox) = show(io, MIME"text/plain"(), x)
+function Base.show(io::IO, ::MIME"text/plain", x::IndexBox{N}) where {N}
+    show(io, typeof(x))
+    print(io, "(")
+    flag = false
+    for rng in x.indices
+        flag && print(io, ", ")
+        print(io, rng)
+        flag = true
+    end
+    print(io, ")")
 end
 
 Base.isempty(A::IndexBox) = mapreduce(isless, |, Tuple(last(A)), Tuple(first(A)))
