@@ -62,12 +62,10 @@ IndexBox(A::AbstractArray) = IndexBox(axes(A))
 IndexBox{N}(A::AbstractArray{<:Any,N}) where {N} = IndexBox(A)
 
 # IndexBox constructors from a pair of Cartesian indices or of points.
-for type in (:(CartesianIndex{N}), :(Point{N,<:Integer}))
+for type in (:(CartesianIndex{N}), :(Point{N,<:Integer}), :(NTuple{N,Integer}))
     @eval begin
-        #IndexBox((start,stop)::NTuple{2,$(type)}) where {N} = IndexBox(start, stop)
         IndexBox(start::$(type), stop::$(type)) where {N} =
             IndexBox(map(UnitRange{Int}, Tuple(start), Tuple(stop)))
-        #IndexBox{N}((start,stop)::NTuple{2,$(type)}) where {N} = IndexBox(start, stop)
         IndexBox{N}(start::$(type), stop::$(type)) where {N} =
             IndexBox(map(UnitRange{Int}, Tuple(start), Tuple(stop)))
     end
