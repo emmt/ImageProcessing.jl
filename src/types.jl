@@ -44,12 +44,4 @@ end
 # it is consistent.
 @assert isconcretetype(UnitRange{Int})
 
-if !isdefined(Base, :Returns)
-    # Returns is not defined prior to Julia 1.7.
-    struct Returns{T}
-        value::T
-        Returns{T}(value) where {T} = new{T}(value)
-        Returns(value::T) where {T} = new{T}(value)
-    end
-    (obj::Returns)(@nospecialize(args...); @nospecialize(kwds...)) = obj.value
 end

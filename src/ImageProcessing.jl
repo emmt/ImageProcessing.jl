@@ -15,6 +15,7 @@ using OffsetArrays
 using StructuredArrays
 using TypeUtils
 
+include("compat.jl")
 include("types.jl")
 include("utils.jl")
 include("points.jl")
