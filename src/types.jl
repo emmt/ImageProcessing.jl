@@ -15,9 +15,11 @@ const ArraySizeOrAxesLike{N} = Union{ArraySizeLike{N},ArrayAxesLike{N}}
 
 singleton object to represent an unspecified optional argument or keyword.
 
-"""
+""" unspecified
 struct Unspecified end
 const unspecified = Unspecified()
+@public Unspecified unspecified
+@doc unspecified Unspecified
 
 struct Point{N,T}
     coords::NTuple{N,T}
