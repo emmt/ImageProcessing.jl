@@ -15,3 +15,31 @@ consequence, special values such as `NaN` or `missing` are not treated specifica
 more, `missing` is not an expected value in images. One should use `NaN` to indicate
 missing or bad data and rely on IEEE rules for NaNs to produce correct results or, better,
 use zero weights for indicating missing or bad data and avoid NaNs.
+
+## Installation
+
+To install  `ImageProcessing` so as to follow the main development branch:
+
+``` julia
+using Pkg
+Pkg.add(url="https://github.com/emmt/ImageProcessing.jl")
+```
+
+or from the prompt of Julia's package manager:
+
+``` julia
+add https://github.com/emmt/ImageProcessing.jl
+```
+
+Another possibility is to install `ImageProcessing` via Julia registry
+[`EmmtRegistry`](https://github.com/emmt/EmmtRegistry), from the prompt of Julia's package
+manager:
+
+```julia
+registry add General
+registry add https://github.com/emmt/EmmtRegistry
+add ImageProcessing
+```
+
+Adding the `General` registry (2nd line of the above example) is mandatory to have access
+to the official Julia packages if you never have used the package manager before.
