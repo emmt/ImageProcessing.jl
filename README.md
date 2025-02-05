@@ -6,3 +6,12 @@ The `ImageProcessing` package provides methods and types for processing *images*
 [Julia](https://julialang.org/). Following the conventions in
 [`JuliaImages`](https://juliaimages.org), *images* can be any multi-dimensional abstract
 arrays with numerical values, not just 2-dimensional arrays.
+
+## Remarks
+
+*Images* may be quite large arrays so many methods of this package are designed for fast
+computations. For example, branching in loops is avoided to favor loop vectorization. As a
+consequence, special values such as `NaN` or `missing` are not treated specifically. Even
+more, `missing` is not an expected value in images. One should use `NaN` to indicate
+missing or bad data and rely on IEEE rules for NaNs to produce correct results or, better,
+use zero weights for indicating missing or bad data and avoid NaNs.
