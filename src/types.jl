@@ -29,6 +29,13 @@ struct Point{N,T}
     Point{N,T}(coords::NTuple{N,Any}) where {N,T} = new{N,T}(coords)
 end
 
+# Union of types to specify an `N`-dimensional Cartesian index.
+const CartesianIndexLike{N} = Union{CartesianIndex{N},NTuple{N,Integer},Point{N,Integer}}
+
+# Union of types to specify a position in an `N`-dimensional array with possibly
+# fractional coordinates.
+const ArrayNode{N,T<:Real} = Union{CartesianIndex{N},NTuple{N,T},Point{N,<:T}}
+
 struct IndexBox{N}
     # The member name is the same as for `CartesianIndices` to help generalize code. The
     # other possibility is to call `EasyRanges.ranges`.
