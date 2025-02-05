@@ -89,7 +89,7 @@ Base.eachindex(A::Point) = Base.OneTo(length(A))
 Base.keys(A::Point) = eachindex(A)
 Base.values(A::Point) = Tuple(A)
 
-# Conversion of points to tuples. The `Point` constructors aloready implement conversion
+# Conversion of points to tuples. The `Point` constructors already implement conversion
 # from tuples.
 Base.Tuple(x::Point) = x.coords
 Base.NTuple(x::Point) = Tuple(x)
