@@ -46,4 +46,9 @@ end
 # it is consistent.
 @assert isconcretetype(UnitRange{Int})
 
+struct OnlineSum{T,N,A<:AbstractArray{<:Any,N},B<:AbstractArray{<:Any,N}}
+    den::A # array to store the integrated denominator
+    num::B # array to store the integrated numerator
+    bad::T # value of bad pixels in the (weighted) mean
+    org::NTuple{N,Int}
 end
