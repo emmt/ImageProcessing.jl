@@ -80,7 +80,7 @@ Base.length(::Type{<:Point{N,T}}) where {T,N} = N
 @inline Base.getindex(A::Point, i) = getindex(Tuple(A), i)
 Base.IteratorSize(::Type{<:Point}) = Base.HasLength()
 Base.IteratorEltype(::Type{<:Point}) = Base.HasEltype()
-@inline Base.iterate(@nospecialize(iter::Point), i::Int = 1) =
+@inline Base.iterate(iter::Point, i::Int = 1) =
     1 ≤ i ≤ length(iter) ? (iter[i], i + 1) : nothing
 
 Base.firstindex(A::Point) = 1
