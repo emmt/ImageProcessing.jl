@@ -74,8 +74,9 @@ Point{N,T}(index::CartesianIndex{N}) where {N,T} = Point{N,T}(Tuple(index))
 # Implement part of the API of `N`-tuples and iterators. NOTE: For `getindex`, bound
 # checking cannot be avoided for tuples.
 Base.eltype(A::Point) = eltype(typeof(A))
-Base.eltype(::Type{Point{N,T}}) where {T,N} = T
-Base.length(A::Point{N,T}) where {T,N} = N
+Base.eltype(::Type{<:Point{N,T}}) where {T,N} = T
+Base.length(A::Point) = length(typeof(A))
+Base.length(::Type{<:Point{N,T}}) where {T,N} = N
 @inline Base.getindex(A::Point, i) = getindex(Tuple(A), i)
 Base.IteratorSize(::Type{<:Point}) = Base.HasLength()
 Base.IteratorEltype(::Type{<:Point}) = Base.HasEltype()
