@@ -74,6 +74,8 @@ Point{N,T}(x::Point{N,T}) where {N,T} = x
 Point{N,T}(x::Point{N}) where {N,T} = Point{N,T}(Tuple(x))
 TypeUtils.convert_eltype(::Type{T}, x::Point{N,T}) where {N,T} = x
 TypeUtils.convert_eltype(::Type{T}, x::Point{N}) where {N,T} = Point{N,T}(x)
+Base.promote_rule(::Type{Point{N,T1}}, ::Type{Point{N,T2}}) where {N,T1,T2} =
+    Point{N,promote_type(T1,T2)}
 
 # Base `convert` method falls back to calling the constructor.
 Base.convert(::Type{T}, x::T) where {T<:Point} = x
