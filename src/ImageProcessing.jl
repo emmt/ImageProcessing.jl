@@ -15,6 +15,7 @@ export
     mean
 
 using EasyRanges
+using LinearAlgebra
 using OffsetArrays
 using Statistics
 using StructuredArrays

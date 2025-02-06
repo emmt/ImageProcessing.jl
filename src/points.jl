@@ -239,4 +239,24 @@ Base.one(x::Point) = one(typeof(x))
 Base.one(::Type{Point{N,T}}) where {N,T} = one(T)
 
 # Extend `EasyRanges` package.
-EasyRanges.normalize(P::Point{N,<:Integer}) where {N} = CartesianIndex(P)
+EasyRanges.normalize(x::Point{N,<:Integer}) where {N} = CartesianIndex(x)
+
+# Some math functions.
+# NOTE `Base.hypot(Tuple(x::Point)...)` is a bit faster than
+#      `LinearAlgebra.norm2(Tuple(x::Point))`.
+LinearAlgebra.norm(A::Point) = hypot(A)
+LinearAlgebra.norm(A::Point, p::Real) = LinearAlgebra.norm(Tuple(A), p)
+@inline Base.hypot(A::Point) = hypot(Tuple(A)...)
+Base.abs(A::Point) = hypot(A)
+Base.abs2(A::Point) = +(map(abs2, Tuple(A))...)
+Base.Math.atan(A::Point{2}) = atan(A[1], A[2])
+LinearAlgebra.dot(A::Point{N}, B::Point{N}) where {N} = mapreduce(*, +, Tuple(A), Tuple(B))
+LinearAlgebra.cross(A::Point{2}, B::Point{2}) = A[1]*B[2] - A[2]*B[1]
+
+# `min()`, `max()`, and `minmax()` for points work as for Cartesian indices.
+Base.min(A::Point{N}, B::Point{N}) where {N} = Point(map(min, Tuple(A), Tuple(B)))
+Base.max(A::Point{N}, B::Point{N}) where {N} = Point(map(max, Tuple(A), Tuple(B)))
+function Base.minmax(A::Point{N}, B::Point{N}) where {N}
+    t = map(minmax, Tuple(A), Tuple(B))
+    return Point(map(first, t)), Point(map(last, t))
+end
