@@ -6,6 +6,9 @@
   instances of `Base.OneTo`, an ordinary array of type `Array{T}` is returned; otherwise,
   an offset array (wrapped on top of an ordinary array) is returned.
 
+- Non-exported public functions `ImageProcessing.to_dim`, `ImageProcessing.to_axis`,
+  `ImageProcessing.to_size`, and `ImageProcessing.to_axes` to deal with array shapes.
+
 - Extend some math functions for instances of `Point`:
   - `abs(A)`, `norm(A)`, `norm(A, 2)`, and `hypot(A)` yield the Euclidean norm of the
     vector of coordinates of point `A` while `norm(A, p)` yields the `p`-norm of the

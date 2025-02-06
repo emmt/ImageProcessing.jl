@@ -32,7 +32,7 @@ soft_thresholder(val, lvl) = nonnegative_part(val - lvl)
 
 yields `x` if `x > zero(x)` holds and `zero(x)` otherwise.
 
-See also [`soft_thresholder`](@ref).
+See also [`soft_thresholder`](@ref), [`ImageProcessing.fast_max`](@ref).
 
 """
 nonnegative_part(x) = fast_max(x, zero(x))
@@ -45,8 +45,11 @@ yields `a` if `a > b` holds and `b` otherwise. Arguments must have the same type
 This function is intended for fast computations (e.g. vectorized loops). If one of `a` or
 `b` is a NaN, `b` is returned.
 
+See also [`ImageProcessing.fast_min`](@ref).
+
 """
 fast_max(a::T, b::T) where {T} = a > b ? a : b
+@public fast_max
 
 """
     ImageProcessing.fast_min(a, b)
@@ -56,8 +59,11 @@ yields `a` if `a < b` holds and `b` otherwise. Arguments must have the same type
 This function is intended for fast computations (e.g. vectorized loops). If one of `a` or
 `b` is a NaN, `b` is returned.
 
+See also [`ImageProcessing.fast_max`](@ref).
+
 """
 fast_min(a::T, b::T) where {T} = a < b ? a : b
+@public fast_min
 
 """
     nearest(T::Type, x) -> y::T
@@ -90,17 +96,23 @@ yields whether it can be quickly inferred that all values of array `A` are equal
 The test is meant to be fast, the result is based on the type of `A` and, at most, on a
 single value of `A`.
 
+See also: [`ImageProcessing.default_weights`](@ref).
+
 """
 quick_all_ones(A::AbstractArray) = false
 quick_all_ones(A::AbstractUniformArray) = isone(StructuredArrays.value(A))
+@public quick_all_ones
 
 """
     ImageProcessing.default_weights(A)
 
 yields a fast uniform array of ones of same axes as array `A`.
 
+See also: [`ImageProcessing.quick_all_ones`](@ref).
+
 """
 default_weights(A::AbstractArray) = FastUniformArray(one(eltype(A)), axes(A))
+@public default_weights
 
 """
     new_array(T::Type, args...) -> A
@@ -118,24 +130,62 @@ new_array(::Type{T}, dims::ArraySizeLike) where {T} = Array{T}(undef, to_size(di
 new_array(::Type{T}, shape::ArrayShape) where {T} =
     OffsetArray(Array{T}(undef, to_size(shape)), to_axes(shape))
 
-# `to_dim(x)` yields an array dimension (an `Int`), for `x` an integer or an
-# integer-valued unit range.
+"""
+    ImageProcessing.to_dim(x) -> dim::Int
+
+yields an array dimension (an `Int`), for `x` an array dimension (an integer) or
+an array axis (an integer-valued unit range).
+
+See also [`ImageProcessing.to_size`](@ref), [`ImageProcessing.to_axis`](@ref),
+[`ImageProcessing.to_axes`](@ref), and [`ImageProcessing.new_array`](@ref).
+
+"""
 to_dim(x::Int) = x
 to_dim(x::Integer) = as(Int, x)
 to_dim(x::AbstractUnitRange{<:Integer}) = as(Int, length(x))
+@public to_dim
 
-# `to_axis(x)` yields an array axis (an `AbstractUnitRange{Int}`), for `x` an integer or
-# an integer-valued unit range.
+"""
+    ImageProcessing.to_axis(x) -> rng::AbstractUnitRange{Int}
+
+yields an array axis, for `x` an array dimension (an integer) or an array axis (an
+integer-valued unit range).
+
+See also [`ImageProcessing.to_axes`](@ref), [`ImageProcessing.to_dim`](@ref),
+[`ImageProcessing.to_size`](@ref), and [`ImageProcessing.new_array`](@ref).
+
+"""
 to_axis(x::Integer) = Base.OneTo{Int}(x)
 to_axis(x::AbstractUnitRange{Int}) = x
 to_axis(x::AbstractUnitRange{<:Integer}) = as(AbstractUnitRange{Int}, x)
+@public to_axis
 
-# Convert argument to array size (a `Dims{N}` that is a tuple of `Int`'s).
+"""
+    ImageProcessing.to_size(x) -> dims::Dims{N}
+
+yields an `N`-dimensional array size corresponding to the array shape `x` specified as an
+`N`-tuple of array dimensions (integers) and/or array axes (integer-valued unit ranges).
+
+See also [`ImageProcessing.to_dim`](@ref), [`ImageProcessing.to_axes`](@ref),
+[`ImageProcessing.to_axis`](@ref), and [`ImageProcessing.new_array`](@ref).
+
+"""
 to_size(x::ArrayShapeArg) = (to_dim(x),)
 to_size(x::ArrayShape) = map(to_dim, x)
 to_size(x::Dims) = x
+@public to_size
 
-# Convert argument to array axes (a tuple of `Int`-valued unit ranges).
+"""
+    ImageProcessing.to_axes(x) -> rngs::NTuple{N,AbstractUnitRange{Int}}
+
+yields an `N`-dimensional array axes corresponding to the array shape `x` specified as an
+`N`-tuple of array dimensions (integers) and/or array axes (integer-valued unit ranges).
+
+See also [`ImageProcessing.to_axis`](@ref), [`ImageProcessing.to_size`](@ref),
+[`ImageProcessing.to_dim`](@ref), and [`ImageProcessing.new_array`](@ref).
+
+"""
 to_axes(x::ArrayShapeArg) = (to_axis(x),)
 to_axes(x::ArrayShape) = map(to_axis, x)
 to_axes(x::Tuple{Vararg{AbstractUnitRange{Int}}}) = x
+@public to_axes
