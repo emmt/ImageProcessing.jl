@@ -21,8 +21,26 @@ equivalent to `A.coords[i]` with `i` an integer index or an index range. For exa
 A point may be used as an iterator over its coordinates. For example, `x,y,z = A` can be
 written to extract the coordinates of a 3-dimensional point `A`.
 
-A number of operations are implemented for points: negation, addition, subtraction, and
-multiplication or division by a scalar number.
+A number of arithmetic operations are implemented for points and are applied elementwise
+to the point coordinates: negation, addition, subtraction, and multiplication or division
+by a scalar number.
+
+The following math functions can be applied to points:
+
+- `abs(A)`, `norm(A)`, `norm(A, 2)`, and `hypot(A)` yield the Euclidean norm of the vector
+  of coordinates of point `A`, while `norm(A, p)` yields the `p`-norm of the vector of
+  coordinates of point `A`;
+
+- `min(A, B)`, `max(A, B)`, and `minmax(A, B)` work for points `A` and `B` as for
+  Cartesian indices;
+
+- `dot(A, B)` yields the scalar product of the vectors of coordinates of points `A` and
+  `B`;
+
+- `atan(A)` yields the polar angle of 2-dimensional point `A`;
+
+- `cross(A, B)` and `A × B` yield the cross product of the vectors of coordinates of
+  2-dimensional points `A` and `B`.
 
 """ Point
 

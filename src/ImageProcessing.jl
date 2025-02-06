@@ -11,6 +11,11 @@ export
     soft_thresholder,
     zerofill!,
 
+    # re-exports from LinearAlgebra
+    norm,
+    cross,
+    dot,
+
     # re-exports from Statistics
     mean
 
