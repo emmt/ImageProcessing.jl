@@ -101,3 +101,41 @@ yields a fast uniform array of ones of same axes as array `A`.
 
 """
 default_weights(A::AbstractArray) = FastUniformArray(one(eltype(A)), axes(A))
+
+"""
+    new_array(T::Type, args...) -> A
+    new_array(T::Type, (args...,)) -> A
+
+yield a new array with undefined elements of type `T` and shape specified by `args...`.
+The shape consists in any number of array dimensions (integers) and/or axes
+(integer-valued unit ranges). The shape may also be specified as a tuple. If all shape
+parameters are integers or instances of `Base.OneTo`, an ordinary array of type `Array{T}`
+is returned; otherwise, an offset array (wrapped on top of an ordinary array) is returned.
+
+"""
+new_array(::Type{T}, args::ArrayShapeArg...) where {T} = new_array(T, args)
+new_array(::Type{T}, dims::ArraySizeLike) where {T} = Array{T}(undef, to_size(dims))
+new_array(::Type{T}, shape::ArrayShape) where {T} =
+    OffsetArray(Array{T}(undef, to_size(shape)), to_axes(shape))
+
+# `to_dim(x)` yields an array dimension (an `Int`), for `x` an integer or an
+# integer-valued unit range.
+to_dim(x::Int) = x
+to_dim(x::Integer) = as(Int, x)
+to_dim(x::AbstractUnitRange{<:Integer}) = as(Int, length(x))
+
+# `to_axis(x)` yields an array axis (an `AbstractUnitRange{Int}`), for `x` an integer or
+# an integer-valued unit range.
+to_axis(x::Integer) = Base.OneTo{Int}(x)
+to_axis(x::AbstractUnitRange{Int}) = x
+to_axis(x::AbstractUnitRange{<:Integer}) = as(AbstractUnitRange{Int}, x)
+
+# Convert argument to array size (a `Dims{N}` that is a tuple of `Int`'s).
+to_size(x::ArrayShapeArg) = (to_dim(x),)
+to_size(x::ArrayShape) = map(to_dim, x)
+to_size(x::Dims) = x
+
+# Convert argument to array axes (a tuple of `Int`-valued unit ranges).
+to_axes(x::ArrayShapeArg) = (to_axis(x),)
+to_axes(x::ArrayShape) = map(to_axis, x)
+to_axes(x::Tuple{Vararg{AbstractUnitRange{Int}}}) = x

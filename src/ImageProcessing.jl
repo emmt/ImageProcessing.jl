@@ -7,6 +7,7 @@ export
     center_of_gravity,
     hard_thresholder,
     nearest,
+    new_array,
     nonnegative_part,
     soft_thresholder,
     zerofill!,
@@ -27,6 +28,8 @@ using StructuredArrays
 using TypeUtils
 
 include("macros.jl")
+@public to_dim to_size to_axis to_axes
+
 include("compat.jl")
 include("types.jl")
 include("utils.jl")

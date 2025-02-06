@@ -73,22 +73,25 @@ end
 """
     ImageProcessing.default_origin(dim)
     ImageProcessing.default_origin(rng)
-    ImageProcessing.default_origin(dims)
-    ImageProcessing.default_origin(rngs)
+    ImageProcessing.default_origin(args...)
+    ImageProcessing.default_origin((args...,))
 
 yield the origin assumed by default in the `ImageProcessing` package. Arguments may be a
 dimension length `dim` or an index range `rng` to yield the index of the central pixel
-along this dimension or range. Arguments may also be array size `dims` or axes `rngs` to
-yield the multi-dimensional index of the central pixel.
+along this dimension or range. Arguments `args...` may also be any number of array
+dimensions and/or array index ranges to yield the multi-dimensional index of the central
+pixel.
 
 The same conventions as in `fftshift` and `ifftshift` are made for dimensions of even
 length.
 
 """
-default_origin(dim::Integer) = 1 + div(Int(dim), 2)
-default_origin(rng::AbstractUnitRange{<:Integer}) = Int(first(rng)) + div(length(rng), 2)
-default_origin(args::ArraySizeOrAxesLike{N}) where {N} =
-    CartesianIndex(map(default_origin, args))
+default_origin(dim::Integer) = _default_origin(1, dim)
+default_origin(rng::AbstractUnitRange{<:Integer}) = _default_origin(first(rng), length(rng))
+default_origin(args::ArrayShapeArg...) = default_origin(args)
+default_origin(shape::ArrayShape) = CartesianIndex(map(default_origin, shape))
+_default_origin(firstindex::Integer, length::Integer) =
+    as(Int, firstindex) + div(as(Int, length), 2)
 
 """
     I = ImageProcessing.locate_maximum(A)

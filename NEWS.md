@@ -1,5 +1,11 @@
 # User visible changes in `ImageProcessing` package
 
+- New exported function `new_array(T, args...)` to build an array with undefined elements
+  of type `T` and shape `args...` that can be any number of array dimensions (integers)
+  and/or axes (integer-valued unit ranges). If all shape parameters are integers or
+  instances of `Base.OneTo`, an ordinary array of type `Array{T}` is returned; otherwise,
+  an offset array (wrapped on top of an ordinary array) is returned.
+
 - Extend some math functions for instances of `Point`:
   - `abs(A)`, `norm(A)`, `norm(A, 2)`, and `hypot(A)` yield the Euclidean norm of the
     vector of coordinates of point `A` while `norm(A, p)` yields the `p`-norm of the
