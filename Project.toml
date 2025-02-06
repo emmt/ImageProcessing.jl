@@ -1,7 +1,7 @@
 name = "ImageProcessing"
 uuid = "45b7010d-6bd2-4dbe-aaef-5f0c144f0fe8"
 authors = ["Éric Thiébaut <eric.thiebaut@univ-lyon1.fr> and contributors"]
-version = "0.1.0"
+version = "0.2.0"
 
 [deps]
 EasyRanges = "bd0ea217-0861-4661-bed1-3e8ea598dd25"

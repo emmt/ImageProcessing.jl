@@ -1,5 +1,7 @@
 # User visible changes in `ImageProcessing` package
 
+# Version 0.2.0
+
 - New exported function `new_array(T, args...)` to build an array with undefined elements
   of type `T` and shape `args...` that can be any number of array dimensions (integers)
   and/or axes (integer-valued unit ranges). If all shape parameters are integers or
