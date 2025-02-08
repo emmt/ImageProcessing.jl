@@ -105,6 +105,7 @@ Base.IteratorEltype(::Type{<:Point}) = Base.HasEltype()
 Base.firstindex(A::Point) = 1
 Base.lastindex(A::Point) = length(A)
 Base.eachindex(A::Point) = Base.OneTo(length(A))
+Base.eachindex(::IndexLinear, A::Point) = Base.OneTo(length(A))
 Base.keys(A::Point) = eachindex(A)
 Base.values(A::Point) = Tuple(A)
 
