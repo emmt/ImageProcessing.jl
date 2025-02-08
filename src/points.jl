@@ -130,6 +130,45 @@ Base.NTuple{N}(x::Point{N}) where {N} = Tuple(x)
 Base.NTuple{N,T}(x::Point{N}) where {N,T} = NTuple{N,T}(Tuple(x))
 Base.convert(::Type{T}, x::Point) where {T<:Tuple} = convert(T, Tuple(x))
 
+# Unary plus and minus.
+Base.:(+)(a::Point) = a
+Base.:(-)(a::Point) = Point(map(-, Tuple(a)))
+
+# Multiplication by a scalar.
+Base.:(*)(a::Number, b::Point) = Point(map(Base.Fix1(*, a), Tuple(b)))
+Base.:(*)(a::Point, b::Number) = b*a
+
+# Division by a scalar.
+Base.:(/)(a::Point, b::Number) = Point(map(Base.Fix2(/, b), Tuple(a)))
+Base.:(\)(a::Number, b::Point) = b/a
+
+# Binary operations between point-like objects.
+for (LType, RType) in ((:Point, :Point), (:Point, :CartesianIndex), (:CartesianIndex, :Point))
+    @eval begin
+        # Addition.
+        Base.:(+)(A::$(LType){N}, B::$(RType){N}) where {N} = Point(map(+, Tuple(A), Tuple(B)))
+
+        # Subtraction.
+        Base.:(-)(A::$(LType){N}, B::$(RType){N}) where {N} = Point(map(-, Tuple(A), Tuple(B)))
+
+        # Equality.
+        Base.:(==)(A::$(LType), B::$(RType)) = false
+        Base.:(==)(A::$(LType){N}, B::$(RType){N}) where {N} = Tuple(A) == Tuple(B)
+
+        # Ordering.
+        Base.isless(A::$(LType), B::$(RType)) = false
+        Base.isless(A::$(LType){N}, B::$(RType){N}) where {N} = Tuple(A) < Tuple(B)
+    end
+end
+
+# `min()`, `max()`, and `minmax()` for points work as for Cartesian indices.
+@inline Base.min(A::Point{N}, B::Point{N}) where {N} = Point(map(min, Tuple(A), Tuple(B)))
+@inline Base.max(A::Point{N}, B::Point{N}) where {N} = Point(map(max, Tuple(A), Tuple(B)))
+@inline function Base.minmax(A::Point{N}, B::Point{N}) where {N}
+    t = map(minmax, Tuple(A), Tuple(B))
+    return Point(map(first, t)), Point(map(last, t))
+end
+
 Base.show(io::IO, x::Point) = show(io, MIME"text/plain"(), x)
 function Base.show(io::IO, ::MIME"text/plain", x::Point{N}) where {N}
     print(io, "Point{", N, "}{")
@@ -232,45 +271,6 @@ nearest(::Type{NTuple{N,T}},   x::CartesianIndex{N}) where {N,T} = nearest(NTupl
 nearest(::Type{NTuple{N,T}},   x::NTuple{N,T}      ) where {N,T} = x
 nearest(::Type{NTuple{N,T}},   x::NTuple{N}        ) where {N,T} = map(nearest(T), x)
 
-# Unary plus and minus.
-Base.:(+)(a::Point) = a
-Base.:(-)(a::Point) = Point(map(-, Tuple(a)))
-
-# Multiplication by a scalar.
-Base.:(*)(a::Number, b::Point) = Point(map(Base.Fix1(*, a), Tuple(b)))
-Base.:(*)(a::Point, b::Number) = b*a
-
-# Division by a scalar.
-Base.:(/)(a::Point, b::Number) = Point(map(Base.Fix2(/, b), Tuple(a)))
-Base.:(\)(a::Number, b::Point) = b/a
-
-# Binary operations between point-like objects.
-for (LType, RType) in ((:Point, :Point), (:Point, :CartesianIndex), (:CartesianIndex, :Point))
-    @eval begin
-        # Addition.
-        Base.:(+)(A::$(LType){N}, B::$(RType){N}) where {N} = Point(map(+, Tuple(A), Tuple(B)))
-
-        # Subtraction.
-        Base.:(-)(A::$(LType){N}, B::$(RType){N}) where {N} = Point(map(-, Tuple(A), Tuple(B)))
-
-        # Equality.
-        Base.:(==)(A::$(LType), B::$(RType)) = false
-        Base.:(==)(A::$(LType){N}, B::$(RType){N}) where {N} = Tuple(A) == Tuple(B)
-
-        # Ordering.
-        Base.isless(A::$(LType), B::$(RType)) = false
-        Base.isless(A::$(LType){N}, B::$(RType){N}) where {N} = Tuple(A) < Tuple(B)
-    end
-end
-
-# zero(x) is the neutral element for the addition.
-Base.zero(x::Point) = zero(typeof(x))
-Base.zero(::Type{Point{N,T}}) where {N,T} = Point{N,T}(ntuple(Returns(zero(T)), Val(N)))
-
-# one(x) yields a multiplicative identity for x.
-Base.one(x::Point) = one(typeof(x))
-Base.one(::Type{Point{N,T}}) where {N,T} = one(T)
-
 # Extend `EasyRanges` package.
 EasyRanges.normalize(x::Point{N,<:Integer}) where {N} = CartesianIndex(x)
 
@@ -285,11 +285,3 @@ Base.abs2(A::Point) = mapreduce(abs2, +, Tuple(A))
 Base.Math.atan(A::Point{2}) = atan(A[1], A[2])
 LinearAlgebra.dot(A::Point{N}, B::Point{N}) where {N} = mapreduce(*, +, Tuple(A), Tuple(B))
 LinearAlgebra.cross(A::Point{2}, B::Point{2}) = A[1]*B[2] - A[2]*B[1]
-
-# `min()`, `max()`, and `minmax()` for points work as for Cartesian indices.
-Base.min(A::Point{N}, B::Point{N}) where {N} = Point(map(min, Tuple(A), Tuple(B)))
-Base.max(A::Point{N}, B::Point{N}) where {N} = Point(map(max, Tuple(A), Tuple(B)))
-function Base.minmax(A::Point{N}, B::Point{N}) where {N}
-    t = map(minmax, Tuple(A), Tuple(B))
-    return Point(map(first, t)), Point(map(last, t))
-end
