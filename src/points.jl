@@ -144,28 +144,40 @@ Base.:(/)(a::Point, b::Number) = Point(map(Base.Fix2(/, b), Tuple(a)))
 Base.:(\)(a::Number, b::Point) = b/a
 
 # Binary operations between point-like objects.
-for (LType, RType) in ((:Point, :Point), (:Point, :CartesianIndex), (:CartesianIndex, :Point))
-    @eval begin
-        # Addition.
-        Base.:(+)(A::$(LType){N}, B::$(RType){N}) where {N} = Point(map(+, Tuple(A), Tuple(B)))
+for (A, B) in ((:Point, :Point), (:Point, :CartesianIndex), (:CartesianIndex, :Point))
+    # Addition.
+    @eval Base.:(+)(a::$A{N}, b::$B{N}) where {N} = Point(map(+, Tuple(a), Tuple(b)))
 
-        # Subtraction.
-        Base.:(-)(A::$(LType){N}, B::$(RType){N}) where {N} = Point(map(-, Tuple(A), Tuple(B)))
+    # Subtraction.
+    @eval Base.:(-)(a::$A{N}, b::$B{N}) where {N} = Point(map(-, Tuple(a), Tuple(b)))
 
-        # Equality.
-        Base.:(==)(A::$(LType), B::$(RType)) = false
-        Base.:(==)(A::$(LType){N}, B::$(RType){N}) where {N} = Tuple(A) == Tuple(B)
+    # Equality and ordering.
+    @eval @inline Base.isequal(a::$A, b::$B) = isequal(Tuple(a), Tuple(b))
+    @eval @inline Base.isless(a::$A{N}, b::$B{N}) where {N} =
+        isless(reverse(Tuple(a)), reverse(Tuple(b)))
 
-        # Ordering following `isless` for Cartesian indices.
-        Base.isless(A::$(LType), B::$(RType)) = false
-        Base.isless(A::$(LType){N}, B::$(RType){N}) where {N} = isless_reverse(Tuple(A), Tuple(B))
+    # Comparison operators.
+    for op in (:(==), :(!=), :(<), :(<=), :(>), :(>=))
+        @eval begin
+            Base.$op(a::$A, b::$B) = compare_coordinates(a, $op, b)
+        end
     end
 end
 
-"""
-    ImageProcessing.isless_reverse(a::Tuple, b::Tuple)
+const ComparisonOperator = Union{typeof(==),typeof(!=),
+                                 typeof(<),typeof(<=),
+                                 typeof(>),typeof(>=)}
 
-Return `true` when `N`-tuple `b` is less than `b` in reverse lexicographic order.
+"""
+    ImageProcessing.compare_coordinates(a, op, b)
+
+compares `a` and `b` with comparison operator `op` and as if `a` and `b` be Cartesian
+coordinates. `a` and `b` can be tuples, Cartesian indices, or points.
+
+For example, if `compare_coordinates(a, <, b)`, returns whether `a` is less than `b`
+considering their elements in reverse order (from the last to the first ones). For tuples
+of Cartesian indices, this corresponds to the ordering of array elements in column-major
+order (as regular Julia arrays).
 
 !!! warning
     This method favors unrolling and avoids branching, it may not be suitable for tuples
@@ -173,17 +185,47 @@ Return `true` when `N`-tuple `b` is less than `b` in reverse lexicographic order
     operations.
 
 """
-isless_reverse(a::Tuple{}, b::Tuple{}) = false
-@inline function isless_reverse(a::NTuple{N}, b::NTuple{N}) where {N}
-    aₙ, bₙ = a[N], b[N]
-    return isless(aₙ, bₙ) | (isequal(aₙ, bₙ) & isless(front(a), front(b)))
+@inline function compare_coordinates(a::Union{Tuple,CartesianIndex,Point},
+                                     op::ComparisonOperator,
+                                     b::Union{Tuple,CartesianIndex,Point})
+    return compare_coordinates(to_tuple(a), op, to_tuple(b))
+end
+@public compare_coordinates
+
+# Error catcher.
+compare_coordinates(a::Tuple, op::ComparisonOperator, b::Tuple) =
+    throw(ArgumentError(string("`compare_coordinates(a, ", op, ", b)` for `length(a) = ",
+                               length(a), " and `length(b) = ", length(b), "`")))
+
+# Rewrite comparison.
+compare_coordinates(a::Tuple, ::typeof(> ), b::Tuple) =  compare_coordinates(b, <, a)
+compare_coordinates(a::Tuple, ::typeof(>=), b::Tuple) =  compare_coordinates(b, <=, a)
+compare_coordinates(a::Tuple, ::typeof(!=), b::Tuple) = !compare_coordinates(a, ==, b)
+
+# Equality.
+compare_coordinates(a::Tuple, ::typeof(==), b::Tuple) = a == b
+
+# `<` and `<=` for empty tuples.
+compare_coordinates(a::Tuple{}, ::typeof(< ), b::Tuple{}) = false
+compare_coordinates(a::Tuple{}, ::typeof(<=), b::Tuple{}) = true
+
+# `<` and `<=` for 1-tuples.
+for op in (:(<), :(<=))
+    @eval @inline compare_coordinates(a::Tuple{Any}, ::typeof($op), b::Tuple{Any}) =
+        @inbounds $op(a[1], b[1])
+end
+
+# Otherwise, `<` and `<=` are applied in reverse order.
+@inline function compare_coordinates(a::NTuple{N,Any}, op::Union{typeof(<),typeof(<=)},
+                                     b::NTuple{N,Any}) where {N}
+    return op(reverse(a), reverse(b))
 end
 
 # `min()`, `max()`, and `minmax()` for points work as for Cartesian indices.
-@inline Base.min(A::Point{N}, B::Point{N}) where {N} = Point(map(min, Tuple(A), Tuple(B)))
-@inline Base.max(A::Point{N}, B::Point{N}) where {N} = Point(map(max, Tuple(A), Tuple(B)))
-@inline function Base.minmax(A::Point{N}, B::Point{N}) where {N}
-    t = map(minmax, Tuple(A), Tuple(B))
+@inline Base.min(a::Point{N}, b::Point{N}) where {N} = Point(map(min, Tuple(a), Tuple(b)))
+@inline Base.max(a::Point{N}, b::Point{N}) where {N} = Point(map(max, Tuple(a), Tuple(b)))
+@inline function Base.minmax(a::Point{N}, b::Point{N}) where {N}
+    t = map(minmax, Tuple(a), Tuple(b))
     return Point(map(first, t)), Point(map(last, t))
 end
 
@@ -295,11 +337,11 @@ EasyRanges.normalize(x::Point{N,<:Integer}) where {N} = CartesianIndex(x)
 # Some math functions.
 # NOTE `Base.hypot(Tuple(x::Point)...)` is a bit faster than
 #      `LinearAlgebra.norm2(Tuple(x::Point))`.
-LinearAlgebra.norm(A::Point) = hypot(A)
-LinearAlgebra.norm(A::Point, p::Real) = LinearAlgebra.norm(Tuple(A), p)
-Base.hypot(A::Point) = hypot(Tuple(A)...)
-Base.abs(A::Point) = hypot(A)
-Base.abs2(A::Point) = mapreduce(abs2, +, Tuple(A))
-Base.Math.atan(A::Point{2}) = atan(A[1], A[2])
-LinearAlgebra.dot(A::Point{N}, B::Point{N}) where {N} = mapreduce(*, +, Tuple(A), Tuple(B))
-LinearAlgebra.cross(A::Point{2}, B::Point{2}) = A[1]*B[2] - A[2]*B[1]
+LinearAlgebra.norm(a::Point) = hypot(a)
+LinearAlgebra.norm(a::Point, p::Real) = LinearAlgebra.norm(Tuple(a), p)
+Base.hypot(a::Point) = hypot(Tuple(a)...)
+Base.abs(a::Point) = hypot(a)
+Base.abs2(a::Point) = mapreduce(abs2, +, Tuple(a))
+Base.Math.atan(a::Point{2}) = atan(a[1], a[2])
+LinearAlgebra.dot(a::Point{N}, b::Point{N}) where {N} = mapreduce(*, +, Tuple(a), Tuple(b))
+LinearAlgebra.cross(a::Point{2}, b::Point{2}) = a[1]*b[2] - a[2]*b[1]

@@ -190,6 +190,10 @@ to_axes(x::ArrayShape) = map(to_axis, x)
 to_axes(x::Tuple{Vararg{AbstractUnitRange{Int}}}) = x
 @public to_axes
 
+to_tuple(x::Tuple) = x
+to_tuple(x::Point) = Tuple(x)
+to_tuple(x::CartesianIndex) = Tuple(x)
+
 """
     ImageProcessing.front(t::Tuple)
 

@@ -5,6 +5,9 @@
   (from last to first) as for Cartesian indices.
 - Non-exported public methods `ImageProcessing.front` and `ImageProcessing.tail` to
   discard the last of the first element of a tuple.
+- Non-exported public method `ImageProcessing.compare_coordinates` implements coordinates
+  comparison for various comparison operators following similar rules as for Cartesian
+  indices.
 
 # Version 0.2.0
 

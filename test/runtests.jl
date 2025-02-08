@@ -12,6 +12,8 @@ using ImageProcessing: front, tail
         @test tail((1,)) === ()
         @test front((1,2)) === (1,)
         @test tail((1,2)) === (2,)
+        @test front((1,pi,:b)) === (1,pi)
+        @test tail((1,pi,:b)) === (pi,:b)
     end
     @testset "Points" begin
         @testset "Miscellaneaous" begin
@@ -89,7 +91,8 @@ using ImageProcessing: front, tail
             @test A == A
             @test A != -A
             @test A != B
-            @test (A < B) === (A.coords < B.coords)
+            @test (A < B) === (reverse(A.coords) < reverse(B.coords))
+            @test (A <= B) === (reverse(A.coords) <= reverse(B.coords))
             # `zero` yields neutral element for addition.
             @test A + zero(A) === A
             @test A - zero(A) === A
