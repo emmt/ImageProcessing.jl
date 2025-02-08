@@ -2,7 +2,17 @@ using ImageProcessing
 using TypeUtils
 using Test
 
+using ImageProcessing: front, tail
+
 @testset "ImageProcessing.jl" begin
+    @testset "Utilities" begin
+        @test_throws ArgumentError front(())
+        @test_throws ArgumentError tail(())
+        @test front((1,)) === ()
+        @test tail((1,)) === ()
+        @test front((1,2)) === (1,)
+        @test tail((1,2)) === (2,)
+    end
     @testset "Points" begin
         @testset "Miscellaneaous" begin
             @test_throws Exception Point(sin, "foo", 3)

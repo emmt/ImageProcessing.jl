@@ -3,6 +3,8 @@
 - `oneunit(x)` for a point (or a point type) `x` yields a unitful unit step point.
 - Bug fix: `isless(x, y)` for points `x` and `y` compares coordinates in reverse order
   (from last to first) as for Cartesian indices.
+- Non-exported public methods `ImageProcessing.front` and `ImageProcessing.tail` to
+  discard the last of the first element of a tuple.
 
 # Version 0.2.0
 

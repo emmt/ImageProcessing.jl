@@ -162,13 +162,8 @@ for (LType, RType) in ((:Point, :Point), (:Point, :CartesianIndex), (:CartesianI
     end
 end
 
-# Also see `Base.front`.
-@inline front(t::NTuple{N,<:Any}) where N = @inbounds t[1:N-1]
-@inline front(t::NTuple{1,<:Any}) = ()
-@inline front(t::Tuple{}) = throw(ArgumentError("cannot call `front` on an empty tuple"))
-
 """
-    isless_reverse(a::Tuple, b::Tuple)
+    ImageProcessing.isless_reverse(a::Tuple, b::Tuple)
 
 Return `true` when `N`-tuple `b` is less than `b` in reverse lexicographic order.
 

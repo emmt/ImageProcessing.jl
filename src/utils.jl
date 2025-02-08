@@ -189,3 +189,31 @@ to_axes(x::ArrayShapeArg) = (to_axis(x),)
 to_axes(x::ArrayShape) = map(to_axis, x)
 to_axes(x::Tuple{Vararg{AbstractUnitRange{Int}}}) = x
 @public to_axes
+
+"""
+    ImageProcessing.front(t::Tuple)
+
+yields the front part of tuple `t`, that is all elements of `t` but the last one keeping
+their order.
+
+Also see `Base.front` and [`ImageProcessing.tail`](@ref).
+
+""" front
+@public front
+@inline front(t::Tuple) = @inbounds t[1:length(t)-1]
+@inline front(t::Tuple{Any}) = ()
+front(t::Tuple{}) = throw(ArgumentError("cannot call `front` on an empty tuple"))
+
+"""
+    ImageProcessing.tail(t::Tuple)
+
+yields the tail part of tuple `t`, that is all elements of `t` but the first one keeping
+their order.
+
+Also see `Base.tail` and [`ImageProcessing.front`](@ref).
+
+""" tail
+@public tail
+@inline tail(t::Tuple) = _tail(t...)
+tail(t::Tuple{}) = throw(ArgumentError("cannot call `tail` on an empty tuple"))
+@inline _tail(_, x...) = x
