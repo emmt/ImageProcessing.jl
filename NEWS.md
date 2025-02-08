@@ -1,5 +1,7 @@
 # User visible changes in `ImageProcessing` package
 
+- `oneunit(x)` for a point (or a point type) `x` yields a unitful unit step point.
+
 # Version 0.2.0
 
 - New exported function `new_array(T, args...)` to build an array with undefined elements

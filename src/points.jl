@@ -92,10 +92,9 @@ Point{N}(index::CartesianIndex{N}) where {N} = Point{N}(Tuple(index))
 Point{N,T}(index::CartesianIndex{N}) where {N,T} = Point{N,T}(Tuple(index))
 
 # Implement part of the API of `N`-tuples and iterators. NOTE: For `getindex`, bound
-# checking cannot be avoided for tuples.
-Base.eltype(A::Point) = eltype(typeof(A))
+# checking cannot be avoided for tuples. For `Point`, Base methods `eltype` and `length`
+# follows the same semantics as `CartesianIndex`.
 Base.eltype(::Type{<:Point{N,T}}) where {T,N} = T
-Base.length(A::Point) = length(typeof(A))
 Base.length(::Type{<:Point{N,T}}) where {T,N} = N
 @inline Base.getindex(A::Point, i) = getindex(Tuple(A), i)
 Base.IteratorSize(::Type{<:Point}) = Base.HasLength()
@@ -108,6 +107,20 @@ Base.lastindex(A::Point) = length(A)
 Base.eachindex(A::Point) = Base.OneTo(length(A))
 Base.keys(A::Point) = eachindex(A)
 Base.values(A::Point) = Tuple(A)
+
+# `one(x)` yields a multiplicative identity for x.
+# `zero(x)` is the neutral element for the addition.
+# `oneunit(x)` follows the same semantics as for Cartesian indices.
+Base.one(::Type{Point{N,T}}) where {N,T} = one(T)
+for f in (:zero, :oneunit)
+    @eval Base.$f(::Type{Point{N,T}}) where {N,T} =
+        Point{N,T}(ntuple(Returns($f(T)), Val(N)))
+end
+
+# These methods are "traits" and only depend on the type.
+for f in (:zero, :one, :oneunit, :length, :eltype)
+    @eval Base.$f(::Point{N,T}) where {N,T} = $f(Point{N,T})
+end
 
 # Conversion of points to tuples. The `Point` constructors already implement conversion
 # from tuples.
