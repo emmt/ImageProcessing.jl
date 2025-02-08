@@ -1,6 +1,8 @@
 # User visible changes in `ImageProcessing` package
 
 - `oneunit(x)` for a point (or a point type) `x` yields a unitful unit step point.
+- Bug fix: `isless(x, y)` for points `x` and `y` compares coordinates in reverse order
+  (from last to first) as for Cartesian indices.
 
 # Version 0.2.0
 

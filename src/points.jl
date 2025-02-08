@@ -156,10 +156,32 @@ for (LType, RType) in ((:Point, :Point), (:Point, :CartesianIndex), (:CartesianI
         Base.:(==)(A::$(LType), B::$(RType)) = false
         Base.:(==)(A::$(LType){N}, B::$(RType){N}) where {N} = Tuple(A) == Tuple(B)
 
-        # Ordering.
+        # Ordering following `isless` for Cartesian indices.
         Base.isless(A::$(LType), B::$(RType)) = false
-        Base.isless(A::$(LType){N}, B::$(RType){N}) where {N} = Tuple(A) < Tuple(B)
+        Base.isless(A::$(LType){N}, B::$(RType){N}) where {N} = isless_reverse(Tuple(A), Tuple(B))
     end
+end
+
+# Also see `Base.front`.
+@inline front(t::NTuple{N,<:Any}) where N = @inbounds t[1:N-1]
+@inline front(t::NTuple{1,<:Any}) = ()
+@inline front(t::Tuple{}) = throw(ArgumentError("cannot call `front` on an empty tuple"))
+
+"""
+    isless_reverse(a::Tuple, b::Tuple)
+
+Return `true` when `N`-tuple `b` is less than `b` in reverse lexicographic order.
+
+!!! warning
+    This method favors unrolling and avoids branching, it may not be suitable for tuples
+    with many elements or for elements with complex types for which comparisons takes many
+    operations.
+
+"""
+isless_reverse(a::Tuple{}, b::Tuple{}) = false
+@inline function isless_reverse(a::NTuple{N}, b::NTuple{N}) where {N}
+    aₙ, bₙ = a[N], b[N]
+    return isless(aₙ, bₙ) | (isequal(aₙ, bₙ) & isless(front(a), front(b)))
 end
 
 # `min()`, `max()`, and `minmax()` for points work as for Cartesian indices.

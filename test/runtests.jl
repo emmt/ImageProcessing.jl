@@ -101,6 +101,13 @@ using Test
             @test Point{3,Float32}(I) === Point(map(Float32, Tuple(I)))
             @test CartesianIndex(A) === CartesianIndex(A.coords)
         end
+        @testset "Comparions for points" begin
+            # `isless` shall compare in reverse lexicographic order.
+            @test (Point((1,2)) < Point((1,2))) == false
+            @test (Point((1,2)) < Point((2,1))) == false
+            @test (Point((2,1)) < Point((1,2))) == true
+            @test (Point((2,1)) < Point((2,1))) == false
+        end
     end
 
     @testset "Boxes" begin
