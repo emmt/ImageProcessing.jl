@@ -8,6 +8,8 @@
 - Non-exported public method `ImageProcessing.compare_coordinates` implements coordinates
   comparison for various comparison operators following similar rules as for Cartesian
   indices.
+- Non-exported public method `ImageProcessing.has_integer_coordinates(x)` to check whether
+  `x` has integer coordinates.
 
 # Version 0.2.0
 

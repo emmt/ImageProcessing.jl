@@ -115,6 +115,18 @@ default_weights(A::AbstractArray) = FastUniformArray(one(eltype(A)), axes(A))
 @public default_weights
 
 """
+    ImageProcessing.has_integer_coordinates(x)
+
+yields whether `x` has integer coordinates. Note that floating-point coordinates are
+considered as integer if they have no fractional part, e.g. `4.0` is integer.
+
+"""
+has_integer_coordinates(x::CartesianIndex) = true
+has_integer_coordinates(x::Point{N,<:Integer}) where {N} = true
+has_integer_coordinates(x::Point) = all(isinteger, Tuple(x))
+@public has_integer_coordinates
+
+"""
     new_array(T::Type, args...) -> A
     new_array(T::Type, (args...,)) -> A
 
