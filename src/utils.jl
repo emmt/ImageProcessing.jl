@@ -115,6 +115,46 @@ default_weights(A::AbstractArray) = FastUniformArray(one(eltype(A)), axes(A))
 @public default_weights
 
 """
+    endpoints(S) -> a, b
+
+yields the *end-points* `a` and `b` of `S` such that `a ≤ x ≤ b` holds for all `x ∈ S`. If
+
+Contrary to `extrema(S)` which throws for empty sets or collections, `endpoints(S)`
+attempts to return `a` and `b` if possible. Hence, if `a ≤ b` does not hold, it may be
+because `S` is empty or contains unbounded values such as `NaN`s.
+
+"""
+endpoints(I::Interval) = first(I), last(I)
+endpoints(B::BoundingBox) = first(B), last(B)
+endpoints(R::AbstractUnitRange) = first(R), last(R)
+function endpoints(R::AbstractRange)
+    a, b, s = first(R), last(R), step(R)
+    return s < zero(s) ? (b, a) : (a, b)
+end
+function endpoints(B::CartesianIndices)
+    tup = map(endpoints, ranges(B))
+    return CartesianIndex(map(first, tup)), CartesianIndex(map(last, tup))
+end
+endpoints(A::AbstractArray) = isempty(A) ? endpoints_empty(eltype(A)) : extrema(A)
+
+# Fallback method assuming argument is an iterator.
+endpoints(iter) = _endpoints(Base.IteratorEltype(iter), Base.IteratorSize(iter), iter)
+_endpoints(::Base.HasEltype, ::Base.IteratorSize, iter) =
+    # Iterator length unknown but element type known: returns the endpoints of an empty
+    # interval if calling `extrema` fails (whatever the reason).
+    try; extrema(iter); catch; endpoints_empty(eltype(iter)); end
+_endpoints(::Base.HasEltype, ::Base.HasLength, iter) =
+    # Iterator length and element type known: returns the endpoints of an empty interval
+    # if length is zero, oterwise calls `extrema`.
+    length(iter) > 0 ? extrema(iter) : endpoints_empty(eltype(iter))
+_endpoints(::Base.IteratorEltype, ::Base.IteratorSize, iter) =
+    # Iterator length and element type both unknown: fallback to calling `extrema`.
+    extrema(iter)
+
+# Yields the endpoints of an empty set of values of type `T`.
+endpoints_empty(::Type{T}) where {T} = (oneunit(T), zero(T))
+
+"""
     ImageProcessing.has_integer_coordinates(x)
 
 yields whether `x` has integer coordinates. Note that floating-point coordinates are
@@ -125,6 +165,64 @@ has_integer_coordinates(x::CartesianIndex) = true
 has_integer_coordinates(x::Point{N,<:Integer}) where {N} = true
 has_integer_coordinates(x::Point) = all(isinteger, Tuple(x))
 @public has_integer_coordinates
+
+"""
+    ImageProcessing.compare_coordinates(a, op, b)
+
+compares `a` and `b` with comparison operator `op` and as if `a` and `b` be Cartesian
+coordinates. `a` and `b` can be tuples, Cartesian indices, or points.
+
+For example, if `compare_coordinates(a, <, b)`, returns whether `a` is less than `b`
+considering their elements in reverse order (from the last to the first ones). For tuples
+of Cartesian indices, this corresponds to the ordering of array elements in column-major
+order (as regular Julia arrays).
+
+!!! warning
+    This method favors unrolling and avoids branching, it may not be suitable for tuples
+    with many elements or for elements with complex types for which comparisons takes many
+    operations.
+
+""" compare_coordinates
+@public compare_coordinates
+
+const ComparisonOperator = Union{typeof(==),typeof(!=),
+                                 typeof(<),typeof(<=),
+                                 typeof(>),typeof(>=)}
+
+@inline function compare_coordinates(a::Union{Tuple,CartesianIndex,Point},
+                                     op::ComparisonOperator,
+                                     b::Union{Tuple,CartesianIndex,Point})
+    return compare_coordinates(to_tuple(a), op, to_tuple(b))
+end
+
+# Error catcher.
+compare_coordinates(a::Tuple, op::ComparisonOperator, b::Tuple) =
+    throw(ArgumentError(string("`compare_coordinates(a, ", op, ", b)` for `length(a) = ",
+                               length(a), " and `length(b) = ", length(b), "`")))
+
+# Rewrite comparison.
+compare_coordinates(a::Tuple, ::typeof(> ), b::Tuple) =  compare_coordinates(b, <, a)
+compare_coordinates(a::Tuple, ::typeof(>=), b::Tuple) =  compare_coordinates(b, <=, a)
+compare_coordinates(a::Tuple, ::typeof(!=), b::Tuple) = !compare_coordinates(a, ==, b)
+
+# Equality.
+compare_coordinates(a::Tuple, ::typeof(==), b::Tuple) = a == b
+
+# `<` and `<=` for empty tuples.
+compare_coordinates(a::Tuple{}, ::typeof(< ), b::Tuple{}) = false
+compare_coordinates(a::Tuple{}, ::typeof(<=), b::Tuple{}) = true
+
+# `<` and `<=` for 1-tuples.
+for op in (:(<), :(<=))
+    @eval @inline compare_coordinates(a::Tuple{Any}, ::typeof($op), b::Tuple{Any}) =
+        @inbounds $op(a[1], b[1])
+end
+
+# Otherwise, `<` and `<=` are applied in reverse order.
+@inline function compare_coordinates(a::NTuple{N,Any}, op::Union{typeof(<),typeof(<=)},
+                                     b::NTuple{N,Any}) where {N}
+    return op(reverse(a), reverse(b))
+end
 
 """
     new_array(T::Type, args...) -> A

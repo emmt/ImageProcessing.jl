@@ -1,5 +1,6 @@
 # User visible changes in `ImageProcessing` package
 
+Non-breaking changes:
 - `oneunit(x)` for a point (or a point type) `x` yields a unitful unit step point.
 - Bug fix: `isless(x, y)` for points `x` and `y` compares coordinates in reverse order
   (from last to first) as for Cartesian indices.
@@ -10,6 +11,16 @@
   indices.
 - Non-exported public method `ImageProcessing.has_integer_coordinates(x)` to check whether
   `x` has integer coordinates.
+- New types `Interval{T}` and `BoundingBox{N,T}` to represent continuous intervals of
+  values of type `T` and hyper-rectangular `N`-dimensional continuous regions of
+  `N`-dimensional points of coordinate type `T` and with axes aligned with the Cartesian
+  axes.
+
+Breaking changes:
+- `IndexBox` has been removed. Use `BoundingBox` instead but the latter is continuous and
+  more general than the latter which is discrete. The rational is that continuous sets are
+  more flexible for coordinates computations and may be converted to some discrete
+  approximation after having performed all necessary computations.
 
 # Version 0.2.0
 

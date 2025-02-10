@@ -4,7 +4,8 @@
     A = Point(coords...)
 
 build a `N`-dimensional point of coordinates `coords...` stored as values of type `T`.
-Unspecified parameters `N` or `T` are inferred from `coords...`.
+Unspecified parameters `N` or `T` are inferred from `coords...`. Coordinates may also be
+specified as a `N`-tuple.
 
 Coordinates may also be given by a `N`-tuple or by a Cartesian index. Conversely, a point
 `A` can be converted into a `N`-tuple or into a Cartesian index by calling the
@@ -47,12 +48,8 @@ The following math functions can be applied to points:
 # Outer constructors and error catchers (needed to avoid stack overflow).
 Point(coords...) = Point(coords)
 Point(coords::NTuple{N,T}) where {N,T} = Point{N,T}(coords)
-function Point(coords::NTuple{N,Any}) where {N}
-    T = promote_type(map(typeof, coords)...)
-    isconcretetype(T) || error(
-        "point coordinates cannot be converted to a common concrete type")
-    return Point{N,T}(coords)
-end
+@inline Point(coords::NTuple{N,Any}) where {N} =
+    Point{N,to_same_concrete_type(map(typeof, coords)...)}(coords)
 
 Point{N}(coords...) where {N} = Point{N}(coords)
 Point{N}(coords::NTuple{N,Any}) where {N} = Point(coords)
@@ -67,35 +64,23 @@ Point{N,T}(coords::Tuple) where {N,T} =
 Point{0,T}() where {T} = Point{0,T}(())
 Point(coords::Tuple{}) = error("missing type parameter `T` for 0-dimensional point")
 
-# Conversions.
-Point(x::Point) = x
-Point{N}(x::Point{N}) where {N} = x
-Point{N,T}(x::Point{N,T}) where {N,T} = x
-Point{N,T}(x::Point{N}) where {N,T} = Point{N,T}(Tuple(x))
-TypeUtils.convert_eltype(::Type{T}, x::Point{N,T}) where {N,T} = x
-TypeUtils.convert_eltype(::Type{T}, x::Point{N}) where {N,T} = Point{N,T}(x)
-Base.promote_rule(::Type{Point{N,T1}}, ::Type{Point{N,T2}}) where {N,T1,T2} =
-    Point{N,promote_type(T1,T2)}
+# A point with integer coordinates can be automatically converted (i.e. by `convert`) into
+# a Cartesian index and conversely.
+Base.CartesianIndex(   p::Point{N}) where {N} = CartesianIndex(NTuple{N,Int}(Tuple(p)))
+Base.CartesianIndex{N}(p::Point{N}) where {N} = CartesianIndex(p)
 
-# Base `convert` method falls back to calling the constructor.
-Base.convert(::Type{T}, x::T) where {T<:Point} = x
-Base.convert(::Type{T}, x) where {T<:Point} = T(x)
+Base.convert(::Type{CartesianIndex},    p::Point{N,<:Integer}) where {N} = CartesianIndex(p)
+Base.convert(::Type{CartesianIndex{N}}, p::Point{N,<:Integer}) where {N} = CartesianIndex(p)
 
-# A point with integer coordinates can be converted into a Cartesian index and conversely.
-Base.CartesianIndex(x::Point{N,<:Integer}) where {N} = CartesianIndex(Tuple(x))
-Base.CartesianIndex{N}(x::Point{N,<:Integer}) where {N} = CartesianIndex(x)
-Base.convert(::Type{CartesianIndex}, x::Point{N,<:Integer}) where {N} = CartesianIndex(x)
-Base.convert(::Type{CartesianIndex{N}}, x::Point{N,<:Integer}) where {N} = CartesianIndex(x)
-
-Point(index::CartesianIndex{N}) where {N} = Point{N,Int}(Tuple(index))
-Point{N}(index::CartesianIndex{N}) where {N} = Point{N}(Tuple(index))
-Point{N,T}(index::CartesianIndex{N}) where {N,T} = Point{N,T}(Tuple(index))
+Point(     i::CartesianIndex{N}) where {N}   = Point{N}(  Tuple(i))
+Point{N}(  i::CartesianIndex{N}) where {N}   = Point{N}(  Tuple(i))
+Point{N,T}(i::CartesianIndex{N}) where {N,T} = Point{N,T}(Tuple(i))
 
 # Implement part of the API of `N`-tuples and iterators. NOTE: For `getindex`, bound
 # checking cannot be avoided for tuples. For `Point`, Base methods `eltype` and `length`
 # follows the same semantics as `CartesianIndex`.
-Base.eltype(::Type{<:Point{N,T}}) where {T,N} = T
-Base.length(::Type{<:Point{N,T}}) where {T,N} = N
+Base.eltype(::Type{<:Point{N,T}}) where {N,T} = T
+Base.length(::Type{<:Point{N,T}}) where {N,T} = N
 @inline Base.getindex(A::Point, i) = getindex(Tuple(A), i)
 Base.IteratorSize(::Type{<:Point}) = Base.HasLength()
 Base.IteratorEltype(::Type{<:Point}) = Base.HasEltype()
@@ -162,63 +147,6 @@ for (A, B) in ((:Point, :Point), (:Point, :CartesianIndex), (:CartesianIndex, :P
             Base.$op(a::$A, b::$B) = compare_coordinates(a, $op, b)
         end
     end
-end
-
-const ComparisonOperator = Union{typeof(==),typeof(!=),
-                                 typeof(<),typeof(<=),
-                                 typeof(>),typeof(>=)}
-
-"""
-    ImageProcessing.compare_coordinates(a, op, b)
-
-compares `a` and `b` with comparison operator `op` and as if `a` and `b` be Cartesian
-coordinates. `a` and `b` can be tuples, Cartesian indices, or points.
-
-For example, if `compare_coordinates(a, <, b)`, returns whether `a` is less than `b`
-considering their elements in reverse order (from the last to the first ones). For tuples
-of Cartesian indices, this corresponds to the ordering of array elements in column-major
-order (as regular Julia arrays).
-
-!!! warning
-    This method favors unrolling and avoids branching, it may not be suitable for tuples
-    with many elements or for elements with complex types for which comparisons takes many
-    operations.
-
-"""
-@inline function compare_coordinates(a::Union{Tuple,CartesianIndex,Point},
-                                     op::ComparisonOperator,
-                                     b::Union{Tuple,CartesianIndex,Point})
-    return compare_coordinates(to_tuple(a), op, to_tuple(b))
-end
-@public compare_coordinates
-
-# Error catcher.
-compare_coordinates(a::Tuple, op::ComparisonOperator, b::Tuple) =
-    throw(ArgumentError(string("`compare_coordinates(a, ", op, ", b)` for `length(a) = ",
-                               length(a), " and `length(b) = ", length(b), "`")))
-
-# Rewrite comparison.
-compare_coordinates(a::Tuple, ::typeof(> ), b::Tuple) =  compare_coordinates(b, <, a)
-compare_coordinates(a::Tuple, ::typeof(>=), b::Tuple) =  compare_coordinates(b, <=, a)
-compare_coordinates(a::Tuple, ::typeof(!=), b::Tuple) = !compare_coordinates(a, ==, b)
-
-# Equality.
-compare_coordinates(a::Tuple, ::typeof(==), b::Tuple) = a == b
-
-# `<` and `<=` for empty tuples.
-compare_coordinates(a::Tuple{}, ::typeof(< ), b::Tuple{}) = false
-compare_coordinates(a::Tuple{}, ::typeof(<=), b::Tuple{}) = true
-
-# `<` and `<=` for 1-tuples.
-for op in (:(<), :(<=))
-    @eval @inline compare_coordinates(a::Tuple{Any}, ::typeof($op), b::Tuple{Any}) =
-        @inbounds $op(a[1], b[1])
-end
-
-# Otherwise, `<` and `<=` are applied in reverse order.
-@inline function compare_coordinates(a::NTuple{N,Any}, op::Union{typeof(<),typeof(<=)},
-                                     b::NTuple{N,Any}) where {N}
-    return op(reverse(a), reverse(b))
 end
 
 # `min()`, `max()`, and `minmax()` for points work as for Cartesian indices.

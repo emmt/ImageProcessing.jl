@@ -26,6 +26,24 @@ const unspecified = Unspecified()
 @public Unspecified unspecified
 @doc unspecified Unspecified
 
+struct Interval{T}
+    start::T
+    stop::T
+    Interval{T}(start, stop) where {T} = new{T}(start, stop)
+end
+
+"""
+    IntervalLike
+
+is an alias to the union of types of objects `x` that can be directly converted into an
+interval by calling the `Interval` constructor as `Interval(x)`. In other words, if `x isa
+IntervalLike` holds then `Interval(x)` yields an interval.
+
+See also [`Interval`](@ref), [`PointLike`](@ref), and [`BoundingBoxLike`](@ref).
+
+"""
+const IntervalLike = Union{Interval,AbstractRange}
+
 struct Point{N,T}
     coords::NTuple{N,T}
 
@@ -34,6 +52,22 @@ struct Point{N,T}
     Point{N,T}(coords::NTuple{N,Any}) where {N,T} = new{N,T}(coords)
 end
 
+"""
+    PointLike{N}
+
+is an alias to the union of types of objects `x` that can be directly converted into a
+`N`-dimensional point by calling the `Point` constructor as `Point(x)` or `Point{N}(x)`.
+In other words, if `x isa PointLike{N}` holds then `Point(x)` yields a `N`-dimensional
+point.
+
+See also [`Point`](@ref), [`IntervalLike`](@ref), [`BoundingBoxLike`](@ref).
+
+"""
+const PointLike{N} = Union{Point{N},CartesianIndex{N}}
+# NOTE (1) The element type cannot be part of the signature because of Cartesian indices.
+#      (2) `NTuple{N}` won't work because there is no guaranties that conversion to
+#          a point is possoble.
+
 # Union of types to specify an `N`-dimensional Cartesian index.
 const CartesianIndexLike{N} = Union{CartesianIndex{N},NTuple{N,Integer},Point{N,Integer}}
 
@@ -41,18 +75,26 @@ const CartesianIndexLike{N} = Union{CartesianIndex{N},NTuple{N,Integer},Point{N,
 # fractional coordinates.
 const ArrayNode{N,T<:Real} = Union{CartesianIndex{N},NTuple{N,T},Point{N,<:T}}
 
-struct IndexBox{N}
-    # The member name is the same as for `CartesianIndices` to help generalize code. The
-    # other possibility is to call `EasyRanges.ranges`.
-    indices::NTuple{N,UnitRange{Int}}
-
-    # The following inner constructor relies on the `convert` base method to convert the
-    # index ranges if needed.
-    IndexBox(rngs::ArrayAxesLike{N}) where {N} = new{N}(rngs)
-
-    # The following inner constructor just drops the type parameter `N`.
-    IndexBox{N}(rngs::ArrayAxesLike{N}) where {N} = IndexBox(rngs)
+struct BoundingBox{N,T}
+    start::Point{N,T}
+    stop::Point{N,T}
+    BoundingBox{N,T}(start, stop) where {N,T} = new{N,T}(start, stop)
 end
+
+"""
+    BoundingBoxLike{N}
+
+is an alias to the union of types of objects `x` that can be directly converted into a
+`N`-dimensional bounding-box by calling the `BoundingBox` constructor as `BoundingBox(x)`
+or `BoundingBox{N}(x)`. In other words, if `x isa BoundingBoxLike{N}` holds then
+`BoundingBox(x)` yields a `N`-dimensional bounding-box.
+
+See also [`BoundingBox`](@ref), [`IntervalLike`](@ref), and [`PointLike`](@ref).
+
+"""
+const BoundingBoxLike{N} = Union{BoundingBox{N},CartesianIndices{N},NTuple{N,IntervalLike}}
+
+const IndexBox{N,T<:Integer} = BoundingBox{N,T}
 
 # The following must hold for `IndexBox{N}` to be a concrete type for a given `N` provided
 # it is consistent.

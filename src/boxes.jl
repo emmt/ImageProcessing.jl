@@ -1,172 +1,191 @@
 """
-    const BoxRange = UnitRange{Int}
+    B = BoundingBox{N,T}(start, stop)
 
-alias for the type of index ranges in a box. Boxes have a single parameter: their number
-of dimensions. This is needed to simplify having type stable vectors of boxes.
+yields an object representing the set of `N`-dimensional points `pnt` such that `start ≤
+pnt ≤ stop` and whose coordinates are of type `T`. If omitted, type parameters `T` and `N`
+are inferred form the arguments. A bounding-box can be seen as an hyper-rectangular region
+whose axes are aligned with the Cartesian axes. If
+`ImageProcessing.compare_coordinates(start, ≤, stop)` does not hold, the bounding-box is
+empty. This can be checked by calling `isempty(B)`.
 
-"""
-const BoxRange = UnitRange{Int}
-@assert isconcretetype(BoxRange)
-const BoxRanges{N} = NTuple{N,BoxRange}
+Arguments `start` and `stop` can be anything that can be `convert`ed to a `Point`: points,
+`N`-tuples of coordinates, or Cartesian indices. If `start` and `stop` are both points,
+the following syntax is supported:
 
-"""
-    B = IndexBox(rngs...)
+    B = start:stop
 
-builds an object representing a `N`-dimensional hyper-rectangular region of contiguous
-array indices given by the `N` unit-ranges `rngs...`. The `N`-tuple of ranges can be
-retrieved by `B.indices` or `Tuple(B)`.
+There are several ways to retrieve the extreme points of a bounding-box `B`:
 
-A box can be built from or converted into a `CartesianIndices` object but has unit-step
-ranges.
+```julia
+start = B.start
+start = first(B)
+start = minimum(B) # throws if `B` is empty
 
-`IndexBox` cannot just be an alias to `CartesianIndices` (with unit range indices) because
-some operations (like scaling or shifting) are implemented for `IndexBox` that do not
-apply for `CartesianIndices`.
+stop = B.stop
+stop = last(B)
+stop = maximum(B) # throws if `B` is empty
 
-A box may also be built given the first and last of its multi-dimensioanl indices:
-
-    B = IndexBox(start, stop)
-
-where `start` and `stop` are `N`-dimensional Cartesian indices or points with integer
-coordinates. The box is empty if `start ≤ stop` does not hold.
-
-"""
-IndexBox(rngs::ArrayAxisLike...) = IndexBox(rngs)
-IndexBox{N}(rngs::Vararg{ArrayAxisLike,N}) where {N} = IndexBox(rngs)
-
-# Constructor from another box.
-IndexBox(A::IndexBox) = A
-IndexBox{N}(A::IndexBox{N}) where {N} = A
-
-# Conversion to `IndexBox` falls back to calling the constructor.
-Base.convert(::Type{T}, x::T) where {T<:IndexBox} = x
-Base.convert(::Type{T}, x) where {T<:IndexBox} = T(x)
-
-# Constructor from CartesianIndices.
-IndexBox(A::CartesianIndices) = IndexBox(A.indices)
-IndexBox{N}(A::CartesianIndices{N}) where {N} = IndexBox(A)
-
-# Convert to CartesianIndices.
-Base.CartesianIndices(A::IndexBox) = CartesianIndices(A.indices)
-Base.CartesianIndices{N}(A::IndexBox{N}) where {N} = CartesianIndices(A)
-Base.convert(::Type{CartesianIndices}, x::IndexBox) = CartesianIndices(x)
-Base.convert(::Type{T}, x::IndexBox{N}) where {N,T<:CartesianIndices{N}} = T(x)
+start, stop = endpoints(B)
+start, stop = extrema(B) # throws if `B` is empty
+```
 
 """
-    B = IndexBox(arr)
+BoundingBox(start::Point{N,T}, stop::Point{N,T}) where {N,T} = BoundingBox{N,T}(start, stop)
+BoundingBox(start::Point{N}, stop::Point{N}) where {N} = BoundingBox(promote(start, stop)...)
 
-build a box representing the axes of the array `arr`.
+Base.:(:)(start::Point{N}, stop::Point{N}) where {N} = BoundingBox(start, stop)
 
-"""
-IndexBox(A::AbstractArray) = IndexBox(axes(A))
-IndexBox{N}(A::AbstractArray{<:Any,N}) where {N} = IndexBox(A)
-
-# IndexBox constructors from a pair of Cartesian indices or of points.
-for type in (:(CartesianIndex{N}), :(Point{N,<:Integer}), :(NTuple{N,Integer}))
+for P in (:(NTuple{N,Any}), :(CartesianIndex{N}))
     @eval begin
-        IndexBox(start::$(type), stop::$(type)) where {N} =
-            IndexBox(map(UnitRange{Int}, Tuple(start), Tuple(stop)))
-        IndexBox{N}(start::$(type), stop::$(type)) where {N} =
-            IndexBox(map(UnitRange{Int}, Tuple(start), Tuple(stop)))
+        BoundingBox(     start::$P, stop::$P) where {N}   = Point(start):Point(stop)
+        BoundingBox{N}(  start::$P, stop::$P) where {N}   = Point(start):Point(stop)
+        BoundingBox{N,T}(start::$P, stop::$P) where {N,T} = Point{N,T}(start):Point{N,T}(stop)
     end
 end
 
-for func in (:first, :last)
-    @eval begin
-        Base.$func(A::IndexBox) = $func(CartesianIndex, A)
-        Base.$func(::Type{Point{N,T}}, A::IndexBox{N}) where {N,T} =
-            Point{N,T}(map($func, A.indices))
-    end
-    for class in (:Point, :CartesianIndex)
-        @eval begin
-            Base.$func(::Type{$class}, A::IndexBox) = $class(map($func, A.indices))
-            Base.$func(::Type{$class{N}}, A::IndexBox{N}) where {N} = $func($class, A)
-        end
-    end
+# Extend base methods for bounding-boxes.
+Base.first(box::BoundingBox) = box.start
+Base.last( box::BoundingBox) = box.stop
+Base.isempty(box::BoundingBox) = !(box.start ≤ box.stop)
+Base.minimum(box::BoundingBox) = (assert_nonempty(box); return box.start)
+Base.maximum(box::BoundingBox) = (assert_nonempty(box); return box.stop)
+Base.extrema(box::BoundingBox) = (assert_nonempty(box); return (box.start, box.stop))
+assert_nonempty(box::BoundingBox) =
+    isempty(box) ? throw(ArgumentError("box must be non-empty")) : nothing
+
+"""
+    B = BoundingBox(R::CartesianIndices{N})
+
+yields the bounding-box representing a `N`-dimensional hyper-rectangular continuous region
+that most tightly contains the Cartesian indices in `R`.
+
+A bounding-box may not be automatically converted into a range of Cartesian indices (the
+`convert` method cannot be used for that) because a range is a discrete set while a
+bounding-box is a continuous set. However, to retrieve the discrete range of Cartesian
+indices `R` that belong to a bounding-box `B`, you may intersect the bounding-box with the
+type `CartesianIndices` (which is meant to represent the set of all possible ranges in
+this context):
+
+```julia
+R = B ∩ CartesianIndices
+```
+
+Calling `EasyRanges.ranges(B)` from the `EasyRanges` package also yields this result.
+
+"""
+BoundingBox(     R::CartesianIndices)                = BoundingBox(endpoints(R)...)
+BoundingBox{N}(  R::CartesianIndices{N}) where {N}   = BoundingBox(R)
+BoundingBox{N,T}(R::CartesianIndices{N}) where {N,T} = BoundingBox{N,T}(endpoints(R)...)
+
+"""
+    B = BoundingBox(rngs...)
+
+yields the bounding-box representing a `N`-dimensional hyper-rectangular continuous region
+that most tightly contains the points whose coordinates are given by the `N` ranges or
+intervals `rngs...`.
+
+ array indices given by the `N` integer-valued unit-ranges
+`rngs...`. Arguments may also be an instance of `CartesianIndices`.
+
+As an example, the bounding-box of the Cartesian indices of an array `A` can be built by
+`BoundingBox(axes(A))`.
+
+A bounding-box may not be automatically converted into a range of Cartesian indices (the
+`convert` method cannot be used for that) because a range is a discrete set while a
+bounding-box is a continuous set. However, to retrieve the discrete range of Cartesian
+indices `R` that belong to a bounding-box `B`, you may intersect the bounding-box with the
+type `CartesianIndices` (which is meant to represent the set of all possible ranges in
+this context):
+
+```julia
+R = B ∩ CartesianIndices
+```
+
+Calling `EasyRanges.ranges(B)` from the `EasyRanges` package also yields this result.
+
+"""
+BoundingBox(rngs::IntervalLike...) = BoundingBox(rngs)
+BoundingBox(rngs::NTuple{N,IntervalLike}) where {N} =
+    BoundingBox(endpoints(Point, rngs)...)
+
+BoundingBox{N}(rngs::Vararg{IntervalLike,N}) where {N} = BoundingBox(rngs)
+BoundingBox{N}(rngs::NTuple{N,IntervalLike}) where {N} = BoundingBox(rngs)
+
+BoundingBox{N,T}(rngs::Vararg{IntervalLike,N}) where {N,T} = BoundingBox{N,T}(rngs)
+BoundingBox{N,T}(rngs::NTuple{N,IntervalLike}) where {N,T} =
+    BoundingBox(endpoints(Point{N,T}, rngs)...)
+
+@inline function endpoints(::Type{T}, rngs::NTuple{N,IntervalLike}) where {N,T<:Point}
+    e = map(endpoints, rngs)
+    return T(map(first, e)), T(map(last, e))
 end
 
-Base.show(io::IO, x::IndexBox) = show(io, MIME"text/plain"(), x)
-function Base.show(io::IO, ::MIME"text/plain", x::IndexBox{N}) where {N}
-    show(io, typeof(x))
+Base.show(io::IO, B::BoundingBox) = show(io, MIME"text/plain"(), B)
+function Base.show(io::IO, ::MIME"text/plain", B::BoundingBox{N}) where {N}
+    show(io, typeof(B))
     print(io, "(")
     flag = false
-    for rng in x.indices
+    for i in intervals(B)
         flag && print(io, ", ")
-        print(io, rng)
+        print(io, first(i), ":", last(i))
         flag = true
     end
     print(io, ")")
 end
 
-Base.isempty(A::IndexBox) = mapreduce(isless, |, Tuple(last(A)), Tuple(first(A)))
+@propagate_inbounds Base.view(A::AbstractArray{<:Any,N}, B::BoundingBox{N,<:Integer}) where {N} =
+    view(A, ranges(B)...)
 
-Base.view(A::AbstractArray{<:Any,N}, B::IndexBox{N}) where {N} =
-    view(A, B.indices...)
+@propagate_inbounds Base.getindex(A::AbstractArray{<:Any,N}, B::BoundingBox{N,<:Integer}) where {N} =
+    getindex(A, ranges(B)...)
 
-Base.getindex(A::AbstractArray{<:Any,N}, B::IndexBox{N}) where {N} =
-    getindex(A, B.indices...)
+new_array(::Type{T}, B::BoundingBox{N,<:Integer}) where {N,T} = new_array(T, ranges(B))
 
-Base.ndims(B::IndexBox) = ndims(typeof(B))
-Base.ndims(::Type{<:IndexBox{N}}) where {N} = N
-Base.size(B::IndexBox) = map(length, B.indices)
-Base.length(B::IndexBox) = prod(size(B))
-
-OffsetArrays.OffsetArray{T}(::typeof(undef), B::IndexBox) where {T} =
-    OffsetArray(Array{T}(undef, size(B)), B.indices)
-OffsetArrays.OffsetArray{T,N}(::typeof(undef), B::IndexBox{N}) where {T,N} =
+OffsetArrays.OffsetArray{T,N}(::typeof(undef), B::BoundingBox{N,<:Integer}) where {T,N} =
     OffsetArray{T}(undef, B)
+function OffsetArrays.OffsetArray{T}(::typeof(undef), B::BoundingBox{N,<:Integer}) where {N,T}
+    rngs = ranges(B)
+    return OffsetArray(Array{T}(undef, map(length, rngs)), rngs)
+end
 
-Base.fill(val::T, B::IndexBox) where {T} = fill!(OffsetArray{T}(undef, B), val)
+Base.fill(val::T, box::BoundingBox{N,<:Integer}) where {N,T} = fill!(new_array(T, box), val)
 
-Base.zeros(::Type{T}, B::IndexBox) where {T} = fill(zero(T), B)
-Base.zeros(B::IndexBox) = zeros(Float64, B)
+# `zeros` and `ones` from a bounding-box with integer coordinates.
+for (f, fs) in ((:zero, :zeros), (:one, :ones))
+    @eval begin
+        Base.$fs(box::BoundingBox{N,<:Integer}) where {N} = $fs(Float64, box)
+        Base.$fs(::Type{T}, box::BoundingBox{N,<:Integer}) where {N,T} = fill($f(T), box)
+    end
+end
 
-Base.ones(::Type{T}, B::IndexBox) where {T} = fill(one(T), B)
-Base.ones(B::IndexBox) = ones(Float64, B)
+foo1(A::Point{N}, B::BoundingBox{N}) where {N} =
+    mapreduce(in, &, Tuple(A), intervals(B); init=true)
+# FIXME Base.in(A::Point{N}, B::Union{BoundingBox{N},CartesianIndices{N}}) where {N} =
+# FIXME     mapreduce(in, &, Tuple(A), ranges(B); init=true)
+# FIXME Base.in(A::CartesianIndex{N}, B::BoundingBox{N}) where {N} =
+# FIXME     mapreduce(in, &, Tuple(A), ranges(B); init=true)
 
-# `CartesianIndices` is more general than `IndexBox`. Both have `Int`-valued ranges.
-Base.promote_rule(::Type{T}, ::Type{IndexBox{N}}) where {N,T<:CartesianIndices{N}} = T
+# Since Julia 1.6 CartesianIndices may have non-unit steps.
+const ContiguousCartesianIndices{N} =
+    CartesianIndices{N,<:NTuple{N,AbstractUnitRange{<:Integer}}}
 
-# Inclusion `A ∈ B`.
-Base.in(A::Point, B::Union{IndexBox,CartesianIndices}) = false
-Base.in(A::Point{N,<:Integer}, B::Union{IndexBox{N},CartesianIndices{N}}) where {N} =
-    mapreduce(in, &, A.coords, B.indices; init=true)
-Base.in(A::CartesianIndex, B::IndexBox) = false
-Base.in(A::CartesianIndex{N}, B::IndexBox{N}) where {N} =
-    mapreduce(in, &, Tuple(A), B.indices; init=true)
-
-# Intersection `A ∩ B` when, at least, one of `A` or `B` is an index box. When `A` or `B`
-# is a `CartesianIndinces`, the result must be a `CartesianIndices` as it is more general.
-# Note that `A ∩ B = B ∩ A` must hold.
-Base.intersect(A::IndexBox{N}, B::IndexBox{N}) where {N} =
-    IndexBox(map(intersect, A.indices, B.indices))
-Base.intersect(A::CartesianIndices{N}, B::IndexBox{N}) where {N} = intersect(B, A)
-Base.intersect(A::IndexBox{N}, B::CartesianIndices{N}) where {N} =
-    CartesianIndices(map(intersect, A.indices, B.indices)) # FIXME: forward?
-
-# `A ⊆ B`, when `A` is an `IndexBox` and `B` an `IndexBox` or a `CartesianIndices`.
-Base.issubset(A::IndexBox, B::Union{IndexBox,CartesianIndices}) = false
-Base.issubset(A::IndexBox{N}, B::Union{IndexBox{N},CartesianIndices{N}}) where {N} =
-    mapreduce(issubset, &, A.indices, B.indices; init=true)
+intervals(B::Union{BoundingBox,ContiguousCartesianIndices}) =
+    map(Interval, Tuple(first(B)), Tuple(last(B)))
 
 # Shifting of Cartesian index ranges by adding/subtracting a point.
 Base.:(+)(A::Point{N,<:Integer}, B::CartesianIndices{N}) where {N} = B + A
-Base.:(+)(A::Union{CartesianIndex{N},Point{N,<:Integer}}, B::IndexBox{N}) where {N} = B + A
-Base.:(+)(A::IndexBox{N}, B::Union{CartesianIndex{N},Point{N,<:Integer}}) where {N} =
-    IndexBox(map(EasyRanges.plus, A.indices, Tuple(B)))
+Base.:(+)(A::Union{CartesianIndex{N},Point{N,<:Integer}}, B::BoundingBox{N}) where {N} = B + A
+Base.:(+)(A::BoundingBox{N}, B::Union{CartesianIndex{N},Point{N,<:Integer}}) where {N} =
+    BoundingBox(map(EasyRanges.plus, ranges(A), Tuple(B)))
 Base.:(+)(A::CartesianIndices{N}, B::Point{N,<:Integer}) where {N} =
-    IndexBox(map(EasyRanges.forward∘EasyRanges.plus, A.indices, Tuple(B)))
+    BoundingBox(map(EasyRanges.forward∘EasyRanges.plus, ranges(A), Tuple(B)))
 
-Base.:(-)(A::IndexBox{N}, B::Union{CartesianIndex{N},Point{N,<:Integer}}) where {N} =
-    IndexBox(map(EasyRanges.minus, A.indices, Tuple(B)))
-Base.:(-)(A::Union{CartesianIndex{N},Point{N,<:Integer}}, B::IndexBox{N}) where {N} =
-    IndexBox(map(EasyRanges.forward∘EasyRanges.minus, Tuple(B), A.indices))
+Base.:(-)(A::BoundingBox{N}, B::Union{CartesianIndex{N},Point{N,<:Integer}}) where {N} =
+    BoundingBox(map(EasyRanges.minus, ranges(A), Tuple(B)))
+Base.:(-)(A::Union{CartesianIndex{N},Point{N,<:Integer}}, B::BoundingBox{N}) where {N} =
+    BoundingBox(map(EasyRanges.forward∘EasyRanges.minus, Tuple(B), ranges(A)))
 
 Base.:(-)(A::CartesianIndices{N}, B::Point{N,<:Integer}) where {N} =
-    CartesianIndices(map(EasyRanges.forward∘EasyRanges.minus, A.indices, Tuple(B)))
+    CartesianIndices(map(EasyRanges.forward∘EasyRanges.minus, ranges(A), Tuple(B)))
 Base.:(-)(A::Point{N,<:Integer}, B::CartesianIndices{N}) where {N} =
-    CartesianIndices(map(EasyRanges.forward∘EasyRanges.minus, Tuple(A), B.indices))
-
-# Extend `EasyRanges` package.
-EasyRanges.normalize(B::IndexBox) = CartesianIndices(B)
-EasyRanges.ranges(B::IndexBox) = B.indices
+    CartesianIndices(map(EasyRanges.forward∘EasyRanges.minus, Tuple(A), ranges(B)))

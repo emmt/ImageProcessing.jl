@@ -12,3 +12,5 @@
   points. Maybe have a look at implementation for Cartesian indices.
 
 - Equivalence between points and static vectors.
+
+- `values(pnt::Point)` is merely an accident.
