@@ -1,19 +1,3 @@
-# Possible argument types for specifying a piece of array shape.
-# This is the same as `eltype(ArrayShape)`.
-const ArrayShapeArg = Union{Integer,AbstractUnitRange{<:Integer}}
-
-# Possible arguments for specifying array shape.
-const ArrayShape{N} = NTuple{N,ArrayShapeArg}
-
-# Types understood as an array size. It is a rectriction of `ArrayShape{N}`.
-const ArraySizeLike{N} = NTuple{N,Union{Integer,Base.OneTo}}
-
-const ArrayAxisLike = AbstractUnitRange{<:Integer}
-const ArrayAxis = AbstractUnitRange{Int}
-
-const ArrayAxesLike{N} = NTuple{N,ArrayAxisLike}
-const ArrayAxes{N} = NTuple{N,ArrayAxis}
-
 """
     ImageProcessing.unspecified
     ImageProcessing.Unspecified()
@@ -93,8 +77,6 @@ See also [`BoundingBox`](@ref), [`IntervalLike`](@ref), and [`PointLike`](@ref).
 
 """
 const BoundingBoxLike{N} = Union{BoundingBox{N},CartesianIndices{N},NTuple{N,IntervalLike}}
-
-const IndexBox{N,T<:Integer} = BoundingBox{N,T}
 
 # The following must hold for `IndexBox{N}` to be a concrete type for a given `N` provided
 # it is consistent.

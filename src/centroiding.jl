@@ -31,7 +31,7 @@ Keywords:
 """
 function center_of_gravity(A::AbstractArray{<:Any,N};
                            weights::AbstractArray{<:Any,N} = default_weights(A),
-                           region::Union{ArrayAxesLike{N},Unspecified} = unspecified,
+                           region::Union{NTuple{N,AbstractRange{<:Integer}},Unspecified} = unspecified,
                            threshold::Number = zero(eltype(weights))*zero(eltype(A)),
                            thresholder = hard_thresholder) where {N}
     # Define and check the region for computing the center of gravity.
@@ -86,11 +86,13 @@ The same conventions as in `fftshift` and `ifftshift` are made for dimensions of
 length.
 
 """
+default_origin(inds::eltype(RelaxedArrayShape)...) = default_origin(inds)
+default_origin(inds::RelaxedArrayShape) =
+    CartesianIndex(map(default_origin, as_array_shape(inds)))
 default_origin(dim::Integer) = _default_origin(1, dim)
 default_origin(rng::AbstractUnitRange{<:Integer}) = _default_origin(first(rng), length(rng))
-default_origin(args::ArrayShapeArg...) = default_origin(args)
-default_origin(shape::ArrayShape) = CartesianIndex(map(default_origin, shape))
-_default_origin(firstindex::Integer, length::Integer) =
+
+_default_origin(firstindex::Int, length::Int) =
     as(Int, firstindex) + div(as(Int, length), 2)
 
 """
