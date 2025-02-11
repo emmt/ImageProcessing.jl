@@ -29,6 +29,8 @@ start, stop = endpoints(B)
 start, stop = extrema(B) # throws if `B` is empty
 ```
 
+The syntax `B.intervals` yields the list of intervals that define the bounding-box `B`.
+
 """
 BoundingBox(start::Point{N,T}, stop::Point{N,T}) where {N,T} = BoundingBox{N,T}(start, stop)
 BoundingBox(start::Point{N}, stop::Point{N}) where {N} = BoundingBox(promote(start, stop)...)
@@ -119,6 +121,12 @@ BoundingBox{N,T}(rngs::NTuple{N,IntervalLike}) where {N,T} =
     e = map(endpoints, rngs)
     return T(map(first, e)), T(map(last, e))
 end
+
+Base.propertynames(::BoundingBox) = (:intervals, :start, :stop,)
+@inline Base.getproperty(B::BoundingBox, key::Symbol) =
+    key === :intervals ? intervals(B)        :
+    key === :start     ? getfield(B, :start) :
+    key === :stop      ? getfield(B, :stop)  : throw(KeyError(key))
 
 Base.show(io::IO, B::BoundingBox) = show(io, MIME"text/plain"(), B)
 function Base.show(io::IO, ::MIME"text/plain", B::BoundingBox{N}) where {N}
