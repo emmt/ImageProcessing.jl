@@ -4,20 +4,18 @@
     A = Point(coords...)
 
 build a `N`-dimensional point of coordinates `coords...` stored as values of type `T`.
-Unspecified parameters `N` or `T` are inferred from `coords...`. Coordinates may also be
-specified as a `N`-tuple.
+Unspecified parameters `N` and/or `T` are inferred from `coords...`.
 
 Coordinates may also be given by a `N`-tuple or by a Cartesian index. Conversely, a point
 `A` can be converted into a `N`-tuple or into a Cartesian index by calling the
 corresponding constructor: `Tuple(A)` or `CartesianIndex(A)`.
 
-For a point `A`, the `N`-tuple of coordinates of `A` is retrieved by `A.coords`,
-`values(A)`, or `Tuple(A)`. The type and number of coordinates are given by `T =
-eltype(A)` and `N = length(A)`.
-
 A point `A` may be indexed to retrieve its individual coordinates: the syntax `A[i]` is
 equivalent to `A.coords[i]` with `i` an integer index or an index range. For example,
-`A[2:3]` yields a tuple of the 2nd to 3rd coordinates of `A`.
+`A[2:3]` yields a tuple of the 2nd to 3rd coordinates of `A` while `A[:]` yields the
+`N`-tuple of coordinates of `A`. The latter may also be retrieved by `A.coords`,
+`values(A)`, or `Tuple(A)`. The type and number of coordinates are given by `T =
+eltype(A)` and `N = length(A)`.
 
 A point may be used as an iterator over its coordinates. For example, `x,y,z = A` can be
 written to extract the coordinates of a 3-dimensional point `A`.

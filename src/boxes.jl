@@ -4,15 +4,19 @@
 yields an object representing the set of `N`-dimensional points `pnt` such that `start ≤
 pnt ≤ stop` and whose coordinates are of type `T`. If omitted, type parameters `T` and `N`
 are inferred form the arguments. A bounding-box can be seen as an hyper-rectangular region
-whose axes are aligned with the Cartesian axes. If
-`ImageProcessing.compare_coordinates(start, ≤, stop)` does not hold, the bounding-box is
-empty. This can be checked by calling `isempty(B)`.
+whose axes are aligned with the Cartesian axes.
+
+If `B isa BoundingBox{N,T}`, `ndims(B)` yields `N` and `eltype(B)` yields
+[`Point{N,T}`](@ref).
 
 Arguments `start` and `stop` can be anything that can be `convert`ed to a `Point`: points,
 `N`-tuples of coordinates, or Cartesian indices. If `start` and `stop` are both points,
 the following syntax is supported:
 
     B = start:stop
+
+If `ImageProcessing.compare_coordinates(start, ≤, stop)` does not hold, the bounding-box
+is empty. This can be checked by calling `isempty(B)`.
 
 There are several ways to retrieve the extreme points of a bounding-box `B`:
 
