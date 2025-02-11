@@ -6,6 +6,9 @@ using ImageProcessing: front, tail
 
 const Returns = ImageProcessing.Returns
 
+build(::Type{CartesianIndices}, start::CartesianIndex{N}, stop::CartesianIndex{N}) where {N} =
+    CartesianIndices(map(UnitRange{Int}, Tuple(start), Tuple(stop)))
+
 @testset "ImageProcessing.jl" begin
     @testset "Utilities" begin
         @test_throws ArgumentError front(())
@@ -127,6 +130,125 @@ const Returns = ImageProcessing.Returns
             @test (Point((2,1)) < Point((1,2))) == true
             @test (Point((2,1)) < Point((2,1))) == false
         end
+    end
+
+    @testset "End-points, intervals, etc." begin
+        # Ckeck `endpoints` method. In particular, result for an empty set shall be empty.
+        #
+        # Get end-points of ranges.
+        @test endpoints(Base.OneTo(7)) === (1, 7)
+        @test endpoints(2:7) === (2, 7)
+        @test endpoints(2:1:7) === (2, 7)
+        @test endpoints(7:-1:2) === (2, 7)
+        r = 1.1:2.3:23.9 # nopn-empty range with a positive step
+        @test endpoints(r) === (first(r), last(r))
+        @test isempty(r) == isempty(Interval(endpoints(r)...))
+        r = 1.1:2.3:-13.9 # empty range with a positive step
+        @test endpoints(r) === (first(r), last(r))
+        @test isempty(r) == isempty(Interval(endpoints(r)...))
+        r = 1.1:-2.3:-13.9 # non-empty range with a negative step
+        @test endpoints(r) === (last(r), first(r))
+        @test isempty(r) == isempty(Interval(endpoints(r)...))
+        r = -1.1:-2.3:13.9 # empty range with a negative step
+        @test endpoints(r) === (last(r), first(r))
+        @test isempty(r) == isempty(Interval(endpoints(r)...))
+        #
+        # Get end-points of intervals.
+        @test isempty(Interval(endpoints(2:-1:7)...))
+        @test endpoints(Interval(0.1, 11.7)) === (0.1, 11.7)
+        @test isempty(Interval(endpoints(Interval(1, 0))...))
+        #
+        # Get end-points of Cartesian indices.
+        R = CartesianIndices((-2:8, 3:5, Base.OneTo(6))) # only unit steps
+        @test endpoints(R) === (CartesianIndex(-2,3,1),  CartesianIndex(8,5,6))
+        @test R == build(CartesianIndices, endpoints(R)...) # only works for unt steps
+        if VERSION ≥ v"1.6"
+            # Step-range not allowed in Julia prior to 1.6.
+            R = CartesianIndices((0:1:8, 3:5, Base.OneTo(6))) # only unit steps
+            @test endpoints(R) === (CartesianIndex(0,3,1),  CartesianIndex(8,5,6))
+            @test R == build(CartesianIndices, endpoints(R)...) # only works for unt steps
+            R = CartesianIndices((0:2:8, 3:5, Base.OneTo(6))) # some non-unit step
+            @test endpoints(R) === (CartesianIndex(0,3,1),  CartesianIndex(8,5,6))
+            R = CartesianIndices((10:-2:0, 4:3:16)) # with some negative step
+            @test endpoints(R) === (CartesianIndex(0,4),  CartesianIndex(10, 16))
+        end
+        #
+        # Get end-points of collections of values.
+        I = @inferred Interval(endpoints(Float32[])...)
+        @test I isa Interval{Float32}
+        @test isempty(I)
+        A = [1.2, 7.9, 0.2, 11.4, -3.5]
+        @test endpoints(A) === extrema(A)
+        B = Tuple(A)
+        @test endpoints(A) === extrema(A)
+        #
+        # Get end-points of strings.
+        I = @inferred Interval(endpoints("")...)
+        @test I isa Interval{Char}
+        @test isempty(I)
+        I = @inferred Interval(endpoints("a")...)
+        @test I isa Interval{Char}
+        @test !isempty(I)
+        @test endpoints(I) === ('a', 'a')
+        I = @inferred Interval(endpoints("abcyxu")...)
+        @test I isa Interval{Char}
+        @test !isempty(I)
+        @test endpoints(I) === ('a', 'y')
+        #
+        # Get end-points of bounding-boxes.
+        start, stop = Point(2,5,10), Point(3,5,10)
+        B = @inferred BoundingBox(start, stop)
+        @test endpoints(B) === (start, stop)
+
+        # Intervals.
+        #
+        # Check that empty interval remains empty after addition, subtraction, etc.
+        I = @inferred Interval(2, 1) # empty interval
+        @test I isa Interval{Int}
+        @test isempty(I)
+        J = @inferred I + Inf
+        @test J isa Interval{typeof(1 + Inf)}
+        @test isempty(J)
+        @test !isempty(Interval(Inf, Inf))
+        @test isempty(I - Inf)
+        @test isempty(Inf - I)
+        @test isempty(Inf*I)
+        @test isempty(-I)
+        @test isempty(I - I)
+        @test isempty(3*I)
+        @test isempty(I/0)
+        @test isempty(I/2)
+
+        I = @inferred Interval(-1, 3)
+        @test I isa Interval{Int}
+        @test !isempty(I)
+        @test !isempty(I + Inf)
+        @test endpoints(float(I)) === map(float, endpoints(I))
+        J = @inferred I + pi
+        @test J === @inferred pi + I
+        @test endpoints(J) === map(x -> x + pi, endpoints(I))
+        J = @inferred I - 7.1
+        @test endpoints(J) === map(x -> x - 7.1, endpoints(I))
+        J = @inferred sqrt(2) - I
+        @test endpoints(J) === map(x -> sqrt(2) - x, reverse(endpoints(I)))
+        @test pi*I === I*pi
+        @test endpoints(pi*I) === map(x -> pi*x, endpoints(I))
+        @test endpoints((-pi)*I) === map(x -> -pi*x, reverse(endpoints(I)))
+        J = @inferred Interval(-2.1, 7.3)
+        @test I + J === J + I
+        @test endpoints(I + J) === (I.start + J.start, I.stop + J.stop)
+        @test endpoints(I - J) === (I.start - J.stop, I.stop - J.start)
+        @test endpoints(J - I) === (J.start - I.stop, J.stop - I.start)
+        @test_broken I - I === zero(I)
+        @test I + I === 2I
+        @test I + zero(I) ===  I
+        @test I - zero(I) ===  I
+        @test zero(I) + I ===  I
+        @test zero(I) - I === -I
+        @test I*one(I) === I
+        @test one(I)*I === I
+        @test one(I)\I === float(I)
+        @test I/one(I) === float(I)
     end
 
     @testset "Boxes" begin

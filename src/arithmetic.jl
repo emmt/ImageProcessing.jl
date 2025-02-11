@@ -1,11 +1,57 @@
+# NOTE: This file collects code for computations involving points, intervals, and
+#       bounding-boxes. Indeed, in may cases, the operations are similar and having the
+#       code side-by-side helps to ensure consistency.
+
+# Dimensionality.
+Base.ndims( ::Type{<:Point{N,T}}) where {N,T} = N
+Base.ndims( ::Type{<:Interval{<:Number}}) = 1
+Base.ndims( ::Type{<:Interval{<:Point{N}}}) where {N} = N
+Base.ndims( ::Type{<:BoundingBox{N,T}}) where {N,T} = N
+
+# Element type.
+Base.eltype(::Type{<:Point{N,T}}) where {N,T} = T
+Base.eltype(::Type{<:Interval{T}}) where {T} = T
+Base.eltype(::Type{<:BoundingBox{N,T}}) where {N,T} = Point{N,T}
+
+# Extend base methods for intervals and bounding-boxes.
+for class in (:Interval, :BoundingBox)
+    @eval begin
+        Base.first(  I::$class) = getfield(I, :start)
+        Base.last(   I::$class) = getfield(I, :stop)
+        Base.minimum(I::$class) = (assert_nonempty(I); return first(I))
+        Base.maximum(I::$class) = (assert_nonempty(I); return last(I))
+        Base.extrema(I::$class) = (assert_nonempty(I); return (first(I), last(I)))
+    end
+end
+
+assert_nonempty(I::Interval) =
+    isempty(I) ? throw(ArgumentError("interval must be non-empty")) : nothing
+
+assert_nonempty(B::BoundingBox) =
+    isempty(B) ? throw(ArgumentError("box must be non-empty")) : nothing
+
+# Check for emptyness and build empty set of the given type.
+Base.isempty(I::Interval) = !(first(I) ≤ last(I))
+Base.empty(::Type{Interval{T}}) where {T} = Interval{T}()
+Interval{T}() where {T} = Interval(endpoints_of_empty_set(T)...)
+
+Base.isempty(B::BoundingBox) = any(isempty, intervals(B))
+Base.empty(::Type{BoundingBox{N,T}}) where {N,T} = BoundingBox{N,T}()
+BoundingBox{N,T}() where {N,T} = BoundingBox(endpoints_of_empty_set(Point{N,T})...)
+
+# NOTE The result is irrelevant if interval is empty.
+Base.clamp(x::T, I::Interval{T}) where {T} = clamp(x, I.start, I.stop)
+Base.clamp(x, I::Interval) = clamp(promote(x, I.start, I.stop)...)
+
+# Convert to floating-point.
 Base.float(p::Point{N,<:AbstractFloat}) where {N} = p
 Base.float(p::Point) = Point(map(float, Tuple(p)))
 
 Base.float(i::Interval{<:AbstractFloat}) = i
-Base.float(i::Interval) = Interval(float(i.start), float(i.stop))
+Base.float(i::Interval) = Interval(float(first(i)), float(last(i)))
 
 Base.float(b::BoundingBox{N,<:AbstractFloat}) where {N} = b
-Base.float(b::BoundingBox) = BoundingBox(float(b.start), float(b.stop))
+Base.float(b::BoundingBox) = BoundingBox(float(first(b)), float(last(b)))
 
 # For points and bounding-boxes, constructors from an instance of the same class,
 # `convert`, `convert_eltype`, and `promote_rule` are similar.
@@ -28,58 +74,261 @@ for class in (:Point, :BoundingBox)
 end
 # ... we just have to provide conversion to a different element type.
 Point{N,T}(pnt::Point{N}) where {N,T} = Point{N,T}(Tuple(pnt))
-BoundingBox{N,T}(box::BoundingBox{N}) where {N,T} = BoundingBox{N,T}(box.start, box.stop)
+BoundingBox{N,T}(b::BoundingBox{N}) where {N,T} = BoundingBox{N,T}(first(b), last(b))
 # ... in addition a cartesian index can be promoted to a point.
 Base.promote_rule(::Type{CartesianIndex{N}}, ::Type{Point{N,T}}) where {N,T} =
     Point{N,promote_type(T,Int)}
 
 # For intervals, conversions and promote rules are also similar but there is no
 # dimensionality to consider.
-Interval(   x::Interval)              = x
-Interval{T}(x::Interval{T}) where {T} = x
-Interval{T}(x::Interval)    where {T} = Interval{T}(x.start, x.stop)
+Interval(   i::Interval)              = i
+Interval{T}(i::Interval{T}) where {T} = i
+Interval{T}(i::Interval)    where {T} = Interval{T}(first(i), last(i))
 #
-Base.convert(::Type{Interval},    x::Interval)              = x
-Base.convert(::Type{Interval{T}}, x::Interval{T}) where {T} = x
-Base.convert(::Type{Interval{T}}, x::Interval)    where {T} = Interval{T}(x)
+Base.convert(::Type{Interval},    i::Interval)              = i
+Base.convert(::Type{Interval{T}}, i::Interval{T}) where {T} = i
+Base.convert(::Type{Interval{T}}, i::Interval)    where {T} = Interval{T}(i)
 #
 TypeUtils.convert_eltype(::Type{T}, ::Type{<:Interval}) where {T} = Interval{T}
 #
 Base.promote_rule(::Type{Interval{T1}}, ::Type{Interval{T2}}) where {T1,T2} =
     Interval{to_same_concrete_type(T1, T2)}
 
+# Unary plus.
+Base.:(+)(p::Point) = p
+Base.:(+)(i::Interval) = i
+Base.:(+)(b::BoundingBox) = b
+
+# Unary minus.
+Base.:(-)(p::Point) = Point(map(-, Tuple(p)))
+Base.:(-)(i::Interval) = Interval(-last(i), -first(i))
+Base.:(-)(b::BoundingBox) = BoundingBox(-last(b), -first(b))
+
+# Consistency
+# -----------
+#
+# Addition and subtraction of points, intervals, or bounding-boxes must be consistent with
+# mutiplication and division by a scalar and with the neutral elements (`one(x)` and
+# `zero(x)`) for the multiplication and for the addition/subtraction.
+
+# `one(x)` yields a multiplicative identity for x.
+Base.one(::Type{Point{N,T}}) where {N,T} = one(T)
+Base.one(::Type{Interval{T}}) where {T} = one(T)
+Base.one(::Type{BoundingBox{N,T}}) where {N,T} = one(T)
+
+# `zero(x)` is the neutral element for the addition.
+Base.zero(::Type{Point{N,T}}) where {N,T} = Point{N,T}(ntuple(Returns(zero(T)), Val(N)))
+Base.zero(::Type{Interval{T}}) where {T} = Interval{T}(zero(T), zero(T))
+Base.zero(::Type{BoundingBox{N,T}}) where {N,T} = BoundingBox{N,T}(zero(Point{N,T}), zero(Point{N,T}))
+
+# For points, `oneunit(x)` follows the same semantics as for Cartesian indices.
+Base.oneunit(::Type{Point{N,T}}) where {N,T} = Point{N,T}(ntuple(Returns(oneunit(T)), Val(N)))
+Base.oneunit(::Type{Interval{T}}) where {T} = Interval{T}(zero(T), oneunit(T))
+Base.oneunit(::Type{BoundingBox{N,T}}) where {N,T} = BoundingBox{N,T}(zero(Point{N,T}), oneunit(Point{N,T}))
+
+# Some methods are "traits" that only depend on the type.
+Base.length(p::Point) = length(typeof(p))
+for class in (:Point, :Interval, :BoundingBox)
+    for f in (:zero, :one, :oneunit, :eltype, :ndims)
+        @eval Base.$f(x::$class) = $f(typeof(x))
+    end
+end
+
+# Multiplication of points, intervals and bounding-boxes by a scalar.
+#
+# NOTE: Multiplication and division of intervals or bounding-boxes by a scalar follow the
+#       same rules.
+Base.:(*)(p::Point, alpha::Number) = alpha*p
+Base.:(*)(alpha::Number, p::Point) = Point(map(Base.Fix1(*, alpha), Tuple(p)))
+
+Base.:(*)(i::Interval, alpha::Real) = alpha*i
+function Base.:(*)(alpha::Real, i::Interval)
+    x = alpha*first(i)
+    isempty(i) && return empty(Interval{typeof(x)})
+    y = alpha*last(i)
+    return Interval(minmax(x, y)...)
+end
+
+Base.:(*)(b::BoundingBox, alpha::Real) = alpha*b
+function Base.:(*)(alpha::Real, b::BoundingBox{N}) where {N}
+    x = alpha*first(b)
+    isempty(b) && return empty(BoundingBox{N,eltype(x)})
+    y = alpha*last(b)
+    return BoundingBox(minmax(x, y)...)
+end
+
+# Division of points, intervals and bounding-boxes by a scalar.
+Base.:(\)(alpha::Number, p::Point) = p/alpha
+Base.:(/)(p::Point, alpha::Number) = Point(map(Base.Fix2(/, alpha), Tuple(p)))
+
+Base.:(\)(alpha::Real, i::Interval) = i/alpha
+function Base.:(/)(i::Interval, alpha::Real)
+    x = first(i)/alpha
+    isempty(i) && return empty(Interval{typeof(x)})
+    y = last(i)/alpha
+    return Interval(minmax(x, y)...)
+end
+
+Base.:(\)(alpha::Real, b::BoundingBox) = b/alpha
+function Base.:(/)(b::BoundingBox{N}, alpha::Real) where {N}
+    x = first(b)/alpha
+    isempty(b) && return empty(BoundingBox{N,eltype(x)})
+    y = last(b)/alpha
+    return BoundingBox(minmax(x, y)...)
+end
+
+# Binary operations between point-like objects.
+for (A, B) in ((:Point, :Point), (:Point, :CartesianIndex), (:CartesianIndex, :Point))
+    # Addition.
+    @eval Base.:(+)(a::$A{N}, b::$B{N}) where {N} = Point(map(+, Tuple(a), Tuple(b)))
+
+    # Subtraction.
+    @eval Base.:(-)(a::$A{N}, b::$B{N}) where {N} = Point(map(-, Tuple(a), Tuple(b)))
+
+    # Equality and ordering.
+    @eval @inline Base.isequal(a::$A, b::$B) = isequal(Tuple(a), Tuple(b))
+    @eval @inline Base.isless(a::$A{N}, b::$B{N}) where {N} =
+        isless(reverse(Tuple(a)), reverse(Tuple(b)))
+
+    # Comparison operators.
+    for op in (:(==), :(!=), :(<), :(<=), :(>), :(>=))
+        @eval begin
+            Base.$op(a::$A,    b::$B) = false
+            Base.$op(a::$A{N}, b::$B{N}) where {N} = compare_coordinates(a, $op, b)
+        end
+    end
+end
+
+# Addition and subtraction of intervals or bounding-boxes follow the same rules.
+Base.:(+)(A::Interval, B::Interval) = +(promote(A, B)...)
+Base.:(-)(A::Interval, B::Interval) = -(promote(A, B)...)
+Base.:(+)(A::BoundingBox{N}, B::BoundingBox{N}) where {N} = +(promote(A, B)...)
+Base.:(-)(A::BoundingBox{N}, B::BoundingBox{N}) where {N} = -(promote(A, B)...)
+for class in (:Interval, :BoundingBox)
+    @eval begin
+        Base.:(+)(A::T, B::T) where {T<:$class} =
+            isempty(A) ? B :
+            isempty(B) ? A : $class(first(A) + first(B), last(A) + last(B))
+        Base.:(-)(A::T, B::T) where {T<:$class} =
+            isempty(A) ? B :
+            isempty(B) ? A : $class(first(A) - last(B), last(A) - first(B))
+    end
+end
+
+# Check equality of intervals and bounding-boxes. Note that `isequal` falls back to `==`.
+Base.:(==)(A::Interval, B::Interval) =
+    (isempty(A) & isempty(B)) | ((first(A) == first(B)) & (last(A) == last(B)))
+Base.:(==)(A::BoundingBox{N}, B::BoundingBox{N}) where {N} =
+    (isempty(A) && isempty(B)) || ((first(A) == first(B)) && (last(A) == last(B)))
+
+# Addition and subtraction of a value to an interval or a point to a bounding-box yields
+# the set resulting from the elementwise operation.
+#
+# NOTE: Emptyness must be checked otherwise adding a value to an empty interval could
+#       yield a non-empty result. For instance, `Interval(1,0) + Inf` would yield
+#       `Interval(Inf,Inf)` which is not considered as empty.
+Base.:(+)(x, i::Interval) = i + x
+function Base.:(+)(i::Interval, x)
+    start, x, stop = promote(first(i), x, last(i))
+    return isempty(i) ? Interval{typeof(x)}() : Interval(start + x, stop + x)
+end
+function Base.:(-)(i::Interval, x)
+    start, x, stop = promote(first(i), x, last(i))
+    return isempty(i) ? Interval{typeof(x)}() : Interval(start - x, stop - x)
+end
+function Base.:(-)(x, i::Interval)
+    start, x, stop = promote(first(i), x, last(i))
+    return isempty(i) ? Interval{typeof(x)}() : Interval(x - stop, x - start)
+end
+
+Base.:(+)(p::PointLike{N}, b::BoundingBox{N}) where {N} = b + p
+function Base.:(+)(b::BoundingBox{N}, p::PointLike{N}) where {N}
+    start, p, stop = promote(first(b), p, last(b))
+    return isempty(b) ? BoundingBox{N,eltype(p)}() : BoundingBox(start + p, stop + p)
+end
+function Base.:(-)(b::BoundingBox{N}, p::PointLike{N}) where {N}
+    start, p, stop = promote(first(b), p, last(b))
+    return isempty(b) ? BoundingBox{N,eltype(p)}() : BoundingBox(start - p, stop - p)
+end
+function Base.:(-)(p::PointLike{N}, b::BoundingBox{N}) where {N}
+    start, p, stop = promote(first(b), p, last(b))
+    return isempty(b) ? BoundingBox{N,eltype(p)}() : BoundingBox(p - stop, p - start)
+end
+
+# Shifting of Cartesian index ranges by adding/subtracting a point. The result is an
+# instance of `CartesinaIndices`.
+Base.:(+)(p::Point{N,<:Integer}, R::CartesianIndices{N}) where {N} = R + p
+Base.:(+)(R::CartesianIndices{N}, p::Point{N,<:Integer}) where {N} =
+    CartesianIndices(map(EasyRanges.plus, R.indices, to_int(p).coords))
+
+Base.:(-)(p::Point{N,<:Integer}, R::CartesianIndices{N}) where {N} =
+    CartesianIndices(map(EasyRanges.minus, to_int(p).coords, R.indices))
+
+Base.:(-)(R::CartesianIndices{N}, p::Point{N,<:Integer}) where {N} =
+    CartesianIndices(map(EasyRanges.minus, R.indices, to_int(p).coords))
+
+to_int(i::Int) = i
+to_int(i::Integer) = as(Int, i)
+to_int(p::Point{N,Int}) where {N} = p
+to_int(p::Point{N,<:Integer}) where {N} = Point{N,Int}(p)
+to_int(i::Interval{Int}) = i
+to_int(i::Interval{<:Integer}) = Interval{Int}(i)
+to_int(b::BoundingBox{N,Int}) where {N} = b
+to_int(b::BoundingBox{N,<:Integer}) where {N} = Bounding{N,Int}(b)
+
+# `min()`, `max()`, and `minmax()` for points work as for Cartesian indices.
+@inline Base.min(a::Point{N}, b::Point{N}) where {N} = Point(map(min, Tuple(a), Tuple(b)))
+@inline Base.max(a::Point{N}, b::Point{N}) where {N} = Point(map(max, Tuple(a), Tuple(b)))
+@inline function Base.minmax(a::Point{N}, b::Point{N}) where {N}
+    t = map(minmax, Tuple(a), Tuple(b))
+    return Point(map(first, t)), Point(map(last, t))
+end
+
+# Some math functions.
+# NOTE `Base.hypot(Tuple(x::Point)...)` is a bit faster than
+#      `LinearAlgebra.norm2(Tuple(x::Point))`.
+LinearAlgebra.norm(a::Point) = hypot(a)
+LinearAlgebra.norm(a::Point, p::Real) = LinearAlgebra.norm(Tuple(a), p)
+Base.hypot(a::Point) = hypot(Tuple(a)...)
+Base.abs(a::Point) = hypot(a)
+Base.abs2(a::Point) = mapreduce(abs2, +, Tuple(a))
+Base.Math.atan(a::Point{2}) = atan(a[1], a[2])
+LinearAlgebra.dot(a::Point{N}, b::Point{N}) where {N} = mapreduce(*, +, Tuple(a), Tuple(b))
+LinearAlgebra.cross(a::Point{2}, b::Point{2}) = a[1]*b[2] - a[2]*b[1]
+
 #-----------------------------------------------------------------------------------------
 # Inclusion of a value in an interval.
-Base.in(x, I::Interval) = (I.start ≤ x)&(x ≤ I.stop)
+Base.in(x, i::Interval) = is_between(x, first(i), last(i))
 
-# Inclusion of a point in anything that is iterable. More specific cases are handles in
-# what follows.
-Base.in(A::Point, B) = _in(A, B)
-@inline _in(A::Point, B) = any(==(A), B)
+# Inclusion of a point `p` in any set `S` that is iterable. More specific cases are
+# handled in what follows.
+Base.in(p::Point, S) = _any_is_equal(p, S)
+@inline _any_is_equal(p::Point, S) = any(==(p), S)
 
 # A point cannot be part of a collection if it is a collection of points of different
 # dimensionality. This provides a shortcase in some common cases. It just have to be done
 # with a signatue a bit more specific than above.
 
-# Inclusion of a point in an array of points.
-Base.in(A::Point{N}, B::AbstractArray{<:Point{M}}) where {N,M} = false
-Base.in(A::Point{N}, B::AbstractArray{<:Point{N}}) where {N} = _in(A, B)
+# Inclusion of a point `p` in `A`, an array of points.
+Base.in(p::Point{N}, A::AbstractArray{<:Point{M}}) where {N,M} = false
+Base.in(p::Point{N}, A::AbstractArray{<:Point{N}}) where {N} = _any_is_equal(p, A)
 
-# Inclusion of a point in a tuple of points.
-Base.in(A::Point{N}, B::Tuple{Vararg{Point{M}}}) where {N,M}  = false
-Base.in(A::Point{N}, B::Tuple{Point{N},Vararg{Point{N}}}) where {N} = _in(A, B)
+# Inclusion of a point `p` in `A`, a tuple of points.
+Base.in(p::Point{N}, A::Tuple{Vararg{Point{M}}}) where {N,M}  = false
+Base.in(p::Point{N}, A::Tuple{Point{N},Vararg{Point{N}}}) where {N} = _any_is_equal(p, A)
 
 # Inclusion of a point in a bounding-box or in Cartesian indices.
-Base.in(A::Point, B::BoundingBox) = false
-Base.in(A::Point{N}, B::BoundingBox{N}) where {N} = first(B) ≤ A ≤ last(B)
+Base.in(p::Point,    B::BoundingBox) = false
+Base.in(p::Point{N}, B::BoundingBox{N}) where {N} =
+    all_between(Tuple(p), Tuple(first(B)), Tuple(last(B)))
 
-# Inclusion of a point in Cartesian indices.
-Base.in(A::Point, B::CartesianIndices) = false
-Base.in(A::Point{N}, B::CartesianIndices{N}) where {N} =
-    has_integer_coordinates(A) && Point(first(B)) ≤ A ≤ Point(last(B))
+# Inclusion of a point in Cartesian indices. FIXME: uses R.indices.
+Base.in(x::Point,    R::CartesianIndices) = false
+Base.in(x::Point{N}, R::CartesianIndices{N}) where {N} =
+    has_integer_coordinates(A) && all_between(Tuple(x), Tuple(first(R)), Tuple(last(R)))
 
 # Inclusion of a Cartesian index in a bounding-box.
-Base.in(A::CartesianIndex, B::BoundingBox) = false
+Base.in(A::CartesianIndex,    B::BoundingBox) = false
 Base.in(A::CartesianIndex{N}, B::BoundingBox{N}) where {N} = Point(A) ∈ B
 
 #-----------------------------------------------------------------------------------------
@@ -88,8 +337,8 @@ Base.issubset(A::Interval, B::Interval) =
     isempty(A) | ((first(B) ≤ first(A)) & (last(A) ≤ last(B)))
 
 function Base.issubset(A::AbstractRange, B::Interval)
-    a, b = endpoints(A)
-    return !(a ≤ b) || ((first(B) ≤ a) & (b ≤ last(B)))
+    start, stop = endpoints(A) # extract end-points once to save computations
+    return !(start ≤ stop) | ((first(B) ≤ start) & (stop ≤ last(B)))
 end
 
 # Continous interval must be empty or a singleton to be possibly a subset of a discrete
@@ -98,24 +347,22 @@ Base.issubset(A::Interval, B::AbstractRange) =
     isempty(A) || (first(A) == last(A) && first(A) ∈ B)
 
 # `A ⊆ B` for bounding-boxes `A` and `B`.
-Base.issubset(A::BoundingBox,     B::BoundingBox)      = false
+Base.issubset(A::BoundingBox,     B::BoundingBox)     = false
 Base.issubset(A::BoundingBox,     B::BoundingBoxLike) = false
-Base.issubset(A::BoundingBoxLike, B::BoundingBox)      = false
+Base.issubset(A::BoundingBoxLike, B::BoundingBox)     = false
 
-Base.issubset(A::BoundingBox{N}, B::BoundingBox{N}) where {N} =
-    isempty(A) || (first(B) ≤ first(A) && last(A) ≤ last(B))
+Base.issubset(A::Union{BoundingBox{N},CartesianIndices{N}}, B::BoundingBox{N}) where {N} =
+    isempty(A) || (first(A) ∈ B && last(A) ∈ B)
 
-Base.issubset(A::CartesianIndices{N}, B::BoundingBox{N}) where {N} =
-    isempty(A) || (first(B) ≤ Point(first(A)) && Point(last(A)) ≤ last(B))
+Base.issubset(A::NTuple{N,IntervalLike}, B::BoundingBox{N}) where {N} =
+    BoundingBox(A) ⊆ B
 
 # A bounding-box, being a continuous set, can only be a subset of a discrete set if it is
 # empty or if it consists in a single point that belongs to the discrete set. NOTE The
-# same rule could be applied for `B` being any iterable or collection of points or
+# same rule could be applied for `I` being any iterable or collection of points or
 # cartesian indices but it's not possible or desirable to foresee every case.
-function Base.issubset(A::BoundingBox{N}, B::CartesianIndices{N}) where {N}
-    start, stop = endpoints(A)
-    return !(start ≤ stop) || (start == stop && start ∈ B)
-end
+Base.issubset(B::BoundingBox{N}, I::CartesianIndices{N}) where {N} =
+    isempty(B) || (first(B) == last(B) && first(B) ∈ I)
 
 #-----------------------------------------------------------------------------------------
 
@@ -271,11 +518,12 @@ end
 
 # Conversion of continuous sets can be done automatically for `EasyRange` because the
 # objective is to obtain a range of indices that belong to the interval.
+EasyRanges.normalize(p::Point{N,<:Integer}) where {N} = CartesianIndex(p)
 EasyRanges.normalize(I::Interval) = I ∩ UnitRange{Int}
 EasyRanges.normalize(B::BoundingBox) = B ∩ CartesianIndices
 EasyRanges.ranges(I::Interval{<:Integer}) = (EasyRanges.normalize(I),)
 EasyRanges.ranges(B::BoundingBox{N,<:Integer}) where {N} =
-    map(UnitRange{Int}, B.start, B.stop) # FIXME: check this!
+    map(UnitRange{Int}, first(B), last(B)) # FIXME: check this!
 
 # Yields floor/ceil even though argument is integer.
 _floor(::Type{T}, x::Integer) where {T} = as(T, x)
@@ -420,3 +668,96 @@ function Base.intersect(R::AbstractUnitRange, I::Interval)
 end
 
 #-----------------------------------------------------------------------------------------
+# Rounding and Co.
+
+struct Round{T,R<:RoundingMode}
+    Round(::Type{T}, r::R) where {T,R<:RoundingMode} = new{T,R}()
+end
+(::Round{T,R})(p) where {T,R} = round(T, p, R())
+
+# Rounding coordinates to a tuple.
+Base.round(::Type{Tuple}, p::Point{N,T}, r::RoundingMode = RoundNearest) where {N,T} =
+    round(NTuple{N,T}, p, r)
+Base.round(::Type{NTuple}, p::Point{N,T}, r::RoundingMode = RoundNearest) where {N,T} =
+    round(NTuple{N,T}, p, r)
+Base.round(::Type{NTuple{N}}, p::Point{N,T}, r::RoundingMode = RoundNearest) where {N,T} =
+    round(Point{N,T}, p, r)
+Base.round(::Type{NTuple{N,T}}, p::Point{N}, r::RoundingMode = RoundNearest) where {N,T} =
+    map(Round(T,r), Tuple(p))
+Base.round(::Type{NTuple{N,T}}, p::Point{N,T}, r::RoundingMode = RoundNearest) where {T<:Integer,N} =
+    Tuple(p)
+
+# Rounding coordinates to a point.
+Base.round(p::Point{N,T}, r::RoundingMode = RoundNearest) where {N,T} = round(Point{N,T}, p, r)
+Base.round(p::Point{N,<:Integer}, r::RoundingMode = RoundNearest) where {N} = p
+Base.round(::Type{Point}, p::Point{N,T}, r::RoundingMode = RoundNearest) where {N,T} =
+    round(Point{N,T}, p, r)
+Base.round(::Type{Point{N}}, p::Point{N,T}, r::RoundingMode = RoundNearest) where {N,T} =
+    round(Point{N,T}, p, r)
+Base.round(::Type{Point{N,T}}, p::Point{N}, r::RoundingMode = RoundNearest) where {N,T} =
+    Point(round(NTuple{N,T}, p, r))
+
+# Rounding coordinates to a Cartesian index.
+Base.round(::Type{CartesianIndex}, p::Point{N}, r::RoundingMode = RoundNearest) where {N} =
+    CartesianIndex(round(NTuple{N,Int}, p, r))
+Base.round(::Type{CartesianIndex{N}}, p::Point{N}, r::RoundingMode = RoundNearest) where {N} =
+    round(CartesianIndex, p, r)
+
+for (f, r) in ((:ceil, :RoundUp), (:floor, :RoundDown))
+    @eval begin
+        Base.$f(p::Point) = round(p, $r)
+
+        Base.$f(::Type{Point},      p::Point{N,T}) where {N,T} = round(Point{N,T}, p, $r)
+        Base.$f(::Type{Point{N}},   p::Point{N,T}) where {N,T} = round(Point{N,T}, p, $r)
+        Base.$f(::Type{Point{N,T}}, p::Point{N}  ) where {N,T} = round(Point{N,T}, p, $r)
+
+        Base.$f(::Type{Tuple},       p::Point{N,T}) where {N,T} = round(NTuple{N,T}, p, $r)
+        Base.$f(::Type{NTuple},      p::Point{N,T}) where {N,T} = round(NTuple{N,T}, p, $r)
+        Base.$f(::Type{NTuple{N}},   p::Point{N,T}) where {N,T} = round(NTuple{N,T}, p, $r)
+        Base.$f(::Type{NTuple{N,T}}, p::Point{N}  ) where {N,T} = round(NTuple{N,T}, p, $r)
+
+        Base.$f(::Type{CartesianIndex},    p::Point{N}) where {N} = round(CartesianIndex, p, $r)
+        Base.$f(::Type{CartesianIndex{N}}, p::Point{N}) where {N} = round(CartesianIndex, p, $r)
+    end
+end
+
+# To nearest Cartesian index.
+nearest(::Type{CartesianIndex{N}}, p::CartesianIndex{N}) where {N} = p
+nearest(::Type{CartesianIndex{N}}, p::NTuple{N}        ) where {N} = nearest(CartesianIndex, p)
+nearest(::Type{CartesianIndex{N}}, p::Point{N}         ) where {N} = nearest(CartesianIndex, p)
+nearest(::Type{CartesianIndex},    p::CartesianIndex   ) = p
+nearest(::Type{CartesianIndex},    p::Point            ) = nearest(CartesianIndex, Tuple(p))
+nearest(::Type{CartesianIndex},    p::NTuple{N,Integer}) where {N} = CartesianIndex(p)
+nearest(::Type{CartesianIndex},    p::NTuple{N,Real}   ) where {N} =
+    CartesianIndex(map(nearest(Int), p))
+
+# To nearest point.
+nearest(::Type{Point},      p::Point) = p
+nearest(::Type{Point},      p::Union{CartesianIndex,NTuple}) = Point(p)
+nearest(::Type{Point{N}},   p::Point{N}) where {N} = p
+nearest(::Type{Point{N}},   p::Union{CartesianIndex{N},NTuple{N}}) where {N} = Point(p)
+nearest(::Type{Point{N,T}}, p::Point{N,T}       ) where {N,T} = p
+nearest(::Type{Point{N,T}}, p::Point{N}         ) where {N,T} = Point{N,T}(map(nearest(T), Tuple(p)))
+nearest(::Type{Point{N,T}}, p::NTuple{N,T}      ) where {N,T} = Point{N,T}(p)
+nearest(::Type{Point{N,T}}, p::NTuple{N}        ) where {N,T} = Point{N,T}(map(nearest(T), p))
+nearest(::Type{Point{N,T}}, p::CartesianIndex{N}) where {N,T} = Point{N,T}(p)
+
+# To nearest N-tuple.
+nearest(::Type{Tuple},         p::Point            ) = Tuple(p)
+nearest(::Type{Tuple},         i::CartesianIndex   ) = Tuple(i)
+nearest(::Type{Tuple},         t::Tuple            ) = t
+
+nearest(::Type{NTuple},        p::Point            ) = Tuple(p)
+nearest(::Type{NTuple},        i::CartesianIndex   ) = Tuple(i)
+nearest(::Type{NTuple},        t::NTuple           ) = t
+
+nearest(::Type{NTuple{N}},     p::Point{N}         ) where {N} = Tuple(p)
+nearest(::Type{NTuple{N}},     i::CartesianIndex{N}) where {N} = Tuple(i)
+nearest(::Type{NTuple{N}},     t::NTuple{N}        ) where {N} = t
+
+nearest(::Type{NTuple{N,T}},   p::Point{N,T}       ) where {N,T} = Tuple(p)
+nearest(::Type{NTuple{N,T}},   p::Point{N}         ) where {N,T} = nearest(NTuple{N,T}, Tuple(p))
+nearest(::Type{NTuple{N,Int}}, i::CartesianIndex{N}) where {N}   = Tuple(i)
+nearest(::Type{NTuple{N,T}},   i::CartesianIndex{N}) where {N,T} = nearest(NTuple{N,T}, Tuple(i))
+nearest(::Type{NTuple{N,T}},   t::NTuple{N,T}      ) where {N,T} = t
+nearest(::Type{NTuple{N,T}},   t::NTuple{N}        ) where {N,T} = map(nearest(T), t)

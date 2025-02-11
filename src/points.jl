@@ -77,202 +77,38 @@ Point{N,T}(i::CartesianIndex{N}) where {N,T} = Point{N,T}(Tuple(i))
 # Implement part of the API of `N`-tuples and iterators. NOTE: For `getindex`, bound
 # checking cannot be avoided for tuples. For `Point`, Base methods `eltype` and `length`
 # follows the same semantics as `CartesianIndex`.
-Base.eltype(::Type{<:Point{N,T}}) where {N,T} = T
-Base.ndims( ::Type{<:Point{N,T}}) where {N,T} = N
 Base.length(::Type{<:Point{N,T}}) where {N,T} = N
-Base.getindex(A::Point, ::Colon) = Tuple(A)
-Base.getindex(A::Point, i) = getindex(Tuple(A), i)
+Base.getindex(p::Point, ::Colon) = Tuple(p)
+Base.getindex(p::Point, i) = getindex(Tuple(p), i)
 Base.IteratorSize(::Type{<:Point}) = Base.HasLength()
 Base.IteratorEltype(::Type{<:Point}) = Base.HasEltype()
 @inline Base.iterate(iter::Point, i::Int = 1) =
     1 ≤ i ≤ length(iter) ? (iter[i], i + 1) : nothing
 
-Base.firstindex(A::Point) = 1
-Base.lastindex(A::Point) = length(A)
-Base.eachindex(A::Point) = Base.OneTo(length(A))
-Base.eachindex(::IndexLinear, A::Point) = Base.OneTo(length(A))
-Base.keys(A::Point) = eachindex(A)
-Base.values(A::Point) = Tuple(A)
-
-# `one(x)` yields a multiplicative identity for x.
-# `zero(x)` is the neutral element for the addition.
-# `oneunit(x)` follows the same semantics as for Cartesian indices.
-Base.one(::Type{Point{N,T}}) where {N,T} = one(T)
-for f in (:zero, :oneunit)
-    @eval Base.$f(::Type{Point{N,T}}) where {N,T} =
-        Point{N,T}(ntuple(Returns($f(T)), Val(N)))
-end
-
-# Some methods are "traits" that only depend on the type.
-for f in (:zero, :one, :oneunit, :eltype, :ndims, :length)
-    @eval Base.$f(::Point{N,T}) where {N,T} = $f(Point{N,T})
-end
+Base.firstindex(p::Point) = 1
+Base.lastindex(p::Point) = length(p)
+Base.eachindex(p::Point) = Base.OneTo(length(p))
+Base.eachindex(::IndexLinear, p::Point) = Base.OneTo(length(p))
+Base.keys(p::Point) = eachindex(p)
+Base.values(p::Point) = Tuple(p)
 
 # Conversion of points to tuples. The `Point` constructors already implement conversion
 # from tuples.
-Base.Tuple(x::Point) = x.coords
-Base.NTuple(x::Point) = Tuple(x)
-Base.NTuple{N}(x::Point{N}) where {N} = Tuple(x)
-Base.NTuple{N,T}(x::Point{N}) where {N,T} = NTuple{N,T}(Tuple(x))
-Base.convert(::Type{T}, x::Point) where {T<:Tuple} = convert(T, Tuple(x))
+Base.Tuple(p::Point) = getfield(p, :coords)
+Base.NTuple(p::Point) = Tuple(p)
+Base.NTuple{N}(p::Point{N}) where {N} = Tuple(p)
+Base.NTuple{N,T}(p::Point{N}) where {N,T} = NTuple{N,T}(Tuple(p))
+Base.convert(::Type{T}, p::Point) where {T<:Tuple} = convert(T, Tuple(p))
 
-# Unary plus and minus.
-Base.:(+)(a::Point) = a
-Base.:(-)(a::Point) = Point(map(-, Tuple(a)))
-
-# Multiplication by a scalar.
-Base.:(*)(a::Number, b::Point) = Point(map(Base.Fix1(*, a), Tuple(b)))
-Base.:(*)(a::Point, b::Number) = b*a
-
-# Division by a scalar.
-Base.:(/)(a::Point, b::Number) = Point(map(Base.Fix2(/, b), Tuple(a)))
-Base.:(\)(a::Number, b::Point) = b/a
-
-# Binary operations between point-like objects.
-for (A, B) in ((:Point, :Point), (:Point, :CartesianIndex), (:CartesianIndex, :Point))
-    # Addition.
-    @eval Base.:(+)(a::$A{N}, b::$B{N}) where {N} = Point(map(+, Tuple(a), Tuple(b)))
-
-    # Subtraction.
-    @eval Base.:(-)(a::$A{N}, b::$B{N}) where {N} = Point(map(-, Tuple(a), Tuple(b)))
-
-    # Equality and ordering.
-    @eval @inline Base.isequal(a::$A, b::$B) = isequal(Tuple(a), Tuple(b))
-    @eval @inline Base.isless(a::$A{N}, b::$B{N}) where {N} =
-        isless(reverse(Tuple(a)), reverse(Tuple(b)))
-
-    # Comparison operators.
-    for op in (:(==), :(!=), :(<), :(<=), :(>), :(>=))
-        @eval begin
-            Base.$op(a::$A, b::$B) = compare_coordinates(a, $op, b)
-        end
-    end
-end
-
-# `min()`, `max()`, and `minmax()` for points work as for Cartesian indices.
-@inline Base.min(a::Point{N}, b::Point{N}) where {N} = Point(map(min, Tuple(a), Tuple(b)))
-@inline Base.max(a::Point{N}, b::Point{N}) where {N} = Point(map(max, Tuple(a), Tuple(b)))
-@inline function Base.minmax(a::Point{N}, b::Point{N}) where {N}
-    t = map(minmax, Tuple(a), Tuple(b))
-    return Point(map(first, t)), Point(map(last, t))
-end
-
-Base.show(io::IO,                      x::Point) = show(io, MIME"text/plain"(), x)
-Base.show(io::IO, m::MIME"text/plain", x::Point) = _show(io, m, x)
-Base.show(io::IO, m::MIME,             x::Point) = _show(io, m, x)
-function _show(io::IO, m::MIME, x::Point{N}) where {N}
-    show(io, m, typeof(x))
+Base.show(io::IO,                      p::Point) = show(io, MIME"text/plain"(), p)
+Base.show(io::IO, m::MIME"text/plain", p::Point) = _show(io, m, p)
+Base.show(io::IO, m::MIME,             p::Point) = _show(io, m, p)
+function _show(io::IO, m::MIME, p::Point{N}) where {N}
+    show(io, m, typeof(p))
     write(io, "(")
     @inbounds for i in 1:N
         i > 1 && write(io, ", ")
-        show(io, m, x[i])
+        show(io, m, p[i])
     end
     write(io, ")")
 end
-
-struct Round{T,R<:RoundingMode}
-    Round(::Type{T}, r::R) where {T,R<:RoundingMode} = new{T,R}()
-end
-(::Round{T,R})(x) where {T,R} = round(T, x, R())
-
-# Rounding coordinates to a tuple.
-Base.round(::Type{Tuple}, x::Point{N,T}, r::RoundingMode = RoundNearest) where {N,T} =
-    round(NTuple{N,T}, x, r)
-Base.round(::Type{NTuple}, x::Point{N,T}, r::RoundingMode = RoundNearest) where {N,T} =
-    round(NTuple{N,T}, x, r)
-Base.round(::Type{NTuple{N}}, x::Point{N,T}, r::RoundingMode = RoundNearest) where {N,T} =
-    round(Point{N,T}, x, r)
-Base.round(::Type{NTuple{N,T}}, x::Point{N}, r::RoundingMode = RoundNearest) where {N,T} =
-    map(Round(T,r), Tuple(x))
-Base.round(::Type{NTuple{N,T}}, x::Point{N,T}, r::RoundingMode = RoundNearest) where {T<:Integer,N} =
-    Tuple(x)
-
-# Rounding coordinates to a point.
-Base.round(x::Point{N,T}, r::RoundingMode = RoundNearest) where {N,T} = round(Point{N,T}, x, r)
-Base.round(x::Point{N,<:Integer}, r::RoundingMode = RoundNearest) where {N} = x
-Base.round(::Type{Point}, x::Point{N,T}, r::RoundingMode = RoundNearest) where {N,T} =
-    round(Point{N,T}, x, r)
-Base.round(::Type{Point{N}}, x::Point{N,T}, r::RoundingMode = RoundNearest) where {N,T} =
-    round(Point{N,T}, x, r)
-Base.round(::Type{Point{N,T}}, x::Point{N}, r::RoundingMode = RoundNearest) where {N,T} =
-    Point(round(NTuple{N,T}, x, r))
-
-# Rounding coordinates to a Cartesian index.
-Base.round(::Type{CartesianIndex}, x::Point{N}, r::RoundingMode = RoundNearest) where {N} =
-    CartesianIndex(round(NTuple{N,Int}, x, r))
-Base.round(::Type{CartesianIndex{N}}, x::Point{N}, r::RoundingMode = RoundNearest) where {N} =
-    round(CartesianIndex, x, r)
-
-for (f, r) in ((:ceil, :RoundUp), (:floor, :RoundDown))
-    @eval begin
-        Base.$f(x::Point) = round(x, $r)
-
-        Base.$f(::Type{Point},      x::Point{N,T}) where {N,T} = round(Point{N,T}, x, $r)
-        Base.$f(::Type{Point{N}},   x::Point{N,T}) where {N,T} = round(Point{N,T}, x, $r)
-        Base.$f(::Type{Point{N,T}}, x::Point{N}  ) where {N,T} = round(Point{N,T}, x, $r)
-
-        Base.$f(::Type{Tuple},       x::Point{N,T}) where {N,T} = round(NTuple{N,T}, x, $r)
-        Base.$f(::Type{NTuple},      x::Point{N,T}) where {N,T} = round(NTuple{N,T}, x, $r)
-        Base.$f(::Type{NTuple{N}},   x::Point{N,T}) where {N,T} = round(NTuple{N,T}, x, $r)
-        Base.$f(::Type{NTuple{N,T}}, x::Point{N}  ) where {N,T} = round(NTuple{N,T}, x, $r)
-
-        Base.$f(::Type{CartesianIndex},    x::Point{N}) where {N} = round(CartesianIndex, x, $r)
-        Base.$f(::Type{CartesianIndex{N}}, x::Point{N}) where {N} = round(CartesianIndex, x, $r)
-    end
-end
-
-# To nearest Cartesian index.
-nearest(::Type{CartesianIndex{N}}, x::CartesianIndex{N}) where {N} = x
-nearest(::Type{CartesianIndex{N}}, x::NTuple{N}        ) where {N} = nearest(CartesianIndex, x)
-nearest(::Type{CartesianIndex{N}}, x::Point{N}         ) where {N} = nearest(CartesianIndex, x)
-nearest(::Type{CartesianIndex},    x::CartesianIndex   ) = x
-nearest(::Type{CartesianIndex},    x::Point            ) = nearest(CartesianIndex, Tuple(x))
-nearest(::Type{CartesianIndex},    x::NTuple{N,Integer}) where {N} = CartesianIndex(x)
-nearest(::Type{CartesianIndex},    x::NTuple{N,Real}   ) where {N} =
-    CartesianIndex(map(nearest(Int), x))
-
-# To nearest point.
-nearest(::Type{Point},      x::Point) = x
-nearest(::Type{Point},      x::Union{CartesianIndex,NTuple}) = Point(x)
-nearest(::Type{Point{N}},   x::Point{N}) where {N} = x
-nearest(::Type{Point{N}},   x::Union{CartesianIndex{N},NTuple{N}}) where {N} = Point(x)
-nearest(::Type{Point{N,T}}, x::Point{N,T}       ) where {N,T} = x
-nearest(::Type{Point{N,T}}, x::Point{N}         ) where {N,T} = Point{N,T}(map(nearest(T), Tuple(x)))
-nearest(::Type{Point{N,T}}, x::NTuple{N,T}      ) where {N,T} = Point{N,T}(x)
-nearest(::Type{Point{N,T}}, x::NTuple{N}        ) where {N,T} = Point{N,T}(map(nearest(T), x))
-nearest(::Type{Point{N,T}}, x::CartesianIndex{N}) where {N,T} = Point{N,T}(x)
-
-# To nearest N-tuple.
-nearest(::Type{Tuple},         x::Point            ) = Tuple(x)
-nearest(::Type{Tuple},         x::CartesianIndex   ) = Tuple(x)
-nearest(::Type{Tuple},         x::Tuple            ) = x
-
-nearest(::Type{NTuple},        x::Point            ) = Tuple(x)
-nearest(::Type{NTuple},        x::CartesianIndex   ) = Tuple(x)
-nearest(::Type{NTuple},        x::NTuple           ) = x
-
-nearest(::Type{NTuple{N}},     x::Point{N}         ) where {N} = Tuple(x)
-nearest(::Type{NTuple{N}},     x::CartesianIndex{N}) where {N} = Tuple(x)
-nearest(::Type{NTuple{N}},     x::NTuple{N}        ) where {N} = x
-
-nearest(::Type{NTuple{N,T}},   x::Point{N,T}       ) where {N,T} = Tuple(x)
-nearest(::Type{NTuple{N,T}},   x::Point{N}         ) where {N,T} = nearest(NTuple{N,T}, Tuple(x))
-nearest(::Type{NTuple{N,Int}}, x::CartesianIndex{N}) where {N}   = Tuple(x)
-nearest(::Type{NTuple{N,T}},   x::CartesianIndex{N}) where {N,T} = nearest(NTuple{N,T}, Tuple(x))
-nearest(::Type{NTuple{N,T}},   x::NTuple{N,T}      ) where {N,T} = x
-nearest(::Type{NTuple{N,T}},   x::NTuple{N}        ) where {N,T} = map(nearest(T), x)
-
-# Extend `EasyRanges` package.
-EasyRanges.normalize(x::Point{N,<:Integer}) where {N} = CartesianIndex(x)
-
-# Some math functions.
-# NOTE `Base.hypot(Tuple(x::Point)...)` is a bit faster than
-#      `LinearAlgebra.norm2(Tuple(x::Point))`.
-LinearAlgebra.norm(a::Point) = hypot(a)
-LinearAlgebra.norm(a::Point, p::Real) = LinearAlgebra.norm(Tuple(a), p)
-Base.hypot(a::Point) = hypot(Tuple(a)...)
-Base.abs(a::Point) = hypot(a)
-Base.abs2(a::Point) = mapreduce(abs2, +, Tuple(a))
-Base.Math.atan(a::Point{2}) = atan(a[1], a[2])
-LinearAlgebra.dot(a::Point{N}, b::Point{N}) where {N} = mapreduce(*, +, Tuple(a), Tuple(b))
-LinearAlgebra.cross(a::Point{2}, b::Point{2}) = a[1]*b[2] - a[2]*b[1]

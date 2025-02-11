@@ -1,10 +1,17 @@
 """
     B = BoundingBox{N,T}(start, stop)
 
-yields an object representing the set of `N`-dimensional points `pnt` such that `start ≤
-pnt ≤ stop` and whose coordinates are of type `T`. If omitted, type parameters `T` and `N`
-are inferred form the arguments. A bounding-box can be seen as an hyper-rectangular region
-whose axes are aligned with the Cartesian axes.
+yields an object representing the set of `N`-dimensional points `x` whose coordinates are
+of type `T` and such that:
+
+    start[i] ≤ x[i] ≤ stop[i]
+
+holds for all `i ∈ 1:N`. If omitted, type parameters `T` and `N` are inferred form the
+arguments.
+
+A bounding-box can be seen as an hyper-rectangular region whose axes are aligned with the
+Cartesian axes. Except for `N = 1`, the interval of points `Interval(start, stop)` is not
+a bounding-box as it countains all points `x` such that `start ≤ x ≤ stop`.
 
 If `B isa BoundingBox{N,T}`, `ndims(B)` yields `N` and `eltype(B)` yields
 [`Point{N,T}`](@ref).
@@ -49,20 +56,6 @@ for P in (:(NTuple{N,Any}), :(CartesianIndex{N}))
         BoundingBox{N,T}(start::$P, stop::$P) where {N,T} = Point{N,T}(start):Point{N,T}(stop)
     end
 end
-
-# Extend base methods for bounding-boxes.
-Base.first(box::BoundingBox) = box.start
-Base.last( box::BoundingBox) = box.stop
-Base.isempty(box::BoundingBox) = !(box.start ≤ box.stop)
-Base.minimum(box::BoundingBox) = (assert_nonempty(box); return box.start)
-Base.maximum(box::BoundingBox) = (assert_nonempty(box); return box.stop)
-Base.extrema(box::BoundingBox) = (assert_nonempty(box); return (box.start, box.stop))
-assert_nonempty(box::BoundingBox) =
-    isempty(box) ? throw(ArgumentError("box must be non-empty")) : nothing
-
-Base.ndims(B::BoundingBox{N,T}) where {N,T} = N
-Base.ndims( ::Type{<:BoundingBox{N,T}}) where {N,T} = N
-Base.eltype(::Type{<:BoundingBox{N,T}}) where {N,T} = Point{N,T}
 
 """
     B = BoundingBox(R::CartesianIndices{N})
@@ -126,11 +119,6 @@ BoundingBox{N,T}(rngs::Vararg{IntervalLike,N}) where {N,T} = BoundingBox{N,T}(rn
 BoundingBox{N,T}(rngs::NTuple{N,IntervalLike}) where {N,T} =
     BoundingBox(endpoints(Point{N,T}, rngs)...)
 
-@inline function endpoints(::Type{T}, rngs::NTuple{N,IntervalLike}) where {N,T<:Point}
-    e = map(endpoints, rngs)
-    return T(map(first, e)), T(map(last, e))
-end
-
 Base.propertynames(::BoundingBox) = (:intervals, :start, :stop,)
 @inline Base.getproperty(B::BoundingBox, key::Symbol) =
     key === :intervals ? intervals(B)        :
@@ -150,59 +138,35 @@ function Base.show(io::IO, ::MIME"text/plain", B::BoundingBox{N}) where {N}
     write(io, ")")
 end
 
+# As a facility, an integer-valued bounding-box can be used to define the index ranges
+# corresponding to this region in a discrete set of Cartesian indices.
+
+TypeUtils.as_array_axes(B::BoundingBox{N,<:Integer}) where {N} =
+    map(UnitRange{Int}, Tuple(first(B)), Tuple(last(B)))
+
 @propagate_inbounds Base.view(A::AbstractArray{<:Any,N}, B::BoundingBox{N,<:Integer}) where {N} =
-    view(A, ranges(B)...)
+    view(A, as_array_axes(B)...)
 
 @propagate_inbounds Base.getindex(A::AbstractArray{<:Any,N}, B::BoundingBox{N,<:Integer}) where {N} =
-    getindex(A, ranges(B)...)
+    getindex(A, as_array_axes(B)...)
 
-new_array(::Type{T}, B::BoundingBox{N,<:Integer}) where {N,T} = new_array(T, ranges(B))
+TypeUtils.new_array(::Type{T}, B::BoundingBox{N,<:Integer}) where {N,T} =
+    new_array(T, as_array_axes(B))
 
 OffsetArrays.OffsetArray{T,N}(::typeof(undef), B::BoundingBox{N,<:Integer}) where {T,N} =
     OffsetArray{T}(undef, B)
+
 function OffsetArrays.OffsetArray{T}(::typeof(undef), B::BoundingBox{N,<:Integer}) where {N,T}
-    rngs = ranges(B)
+    rngs = as_array_axes(B)
     return OffsetArray(Array{T}(undef, map(length, rngs)), rngs)
 end
 
-Base.fill(val::T, box::BoundingBox{N,<:Integer}) where {N,T} = fill!(new_array(T, box), val)
+Base.fill(x::T, B::BoundingBox{N,<:Integer}) where {N,T} = fill!(new_array(T, B), x)
 
 # `zeros` and `ones` from a bounding-box with integer coordinates.
 for (f, fs) in ((:zero, :zeros), (:one, :ones))
     @eval begin
-        Base.$fs(box::BoundingBox{N,<:Integer}) where {N} = $fs(Float64, box)
-        Base.$fs(::Type{T}, box::BoundingBox{N,<:Integer}) where {N,T} = fill($f(T), box)
+        Base.$fs(B::BoundingBox{N,<:Integer}) where {N} = $fs(Float64, B)
+        Base.$fs(::Type{T}, B::BoundingBox{N,<:Integer}) where {N,T} = fill($f(T), B)
     end
 end
-
-foo1(A::Point{N}, B::BoundingBox{N}) where {N} =
-    mapreduce(in, &, Tuple(A), intervals(B); init=true)
-# FIXME Base.in(A::Point{N}, B::Union{BoundingBox{N},CartesianIndices{N}}) where {N} =
-# FIXME     mapreduce(in, &, Tuple(A), ranges(B); init=true)
-# FIXME Base.in(A::CartesianIndex{N}, B::BoundingBox{N}) where {N} =
-# FIXME     mapreduce(in, &, Tuple(A), ranges(B); init=true)
-
-# Since Julia 1.6 CartesianIndices may have non-unit steps.
-const ContiguousCartesianIndices{N} =
-    CartesianIndices{N,<:NTuple{N,AbstractUnitRange{<:Integer}}}
-
-intervals(B::Union{BoundingBox,ContiguousCartesianIndices}) =
-    map(Interval, Tuple(first(B)), Tuple(last(B)))
-
-# Shifting of Cartesian index ranges by adding/subtracting a point.
-Base.:(+)(A::Point{N,<:Integer}, B::CartesianIndices{N}) where {N} = B + A
-Base.:(+)(A::Union{CartesianIndex{N},Point{N,<:Integer}}, B::BoundingBox{N}) where {N} = B + A
-Base.:(+)(A::BoundingBox{N}, B::Union{CartesianIndex{N},Point{N,<:Integer}}) where {N} =
-    BoundingBox(map(EasyRanges.plus, ranges(A), Tuple(B)))
-Base.:(+)(A::CartesianIndices{N}, B::Point{N,<:Integer}) where {N} =
-    BoundingBox(map(EasyRanges.forward∘EasyRanges.plus, ranges(A), Tuple(B)))
-
-Base.:(-)(A::BoundingBox{N}, B::Union{CartesianIndex{N},Point{N,<:Integer}}) where {N} =
-    BoundingBox(map(EasyRanges.minus, ranges(A), Tuple(B)))
-Base.:(-)(A::Union{CartesianIndex{N},Point{N,<:Integer}}, B::BoundingBox{N}) where {N} =
-    BoundingBox(map(EasyRanges.forward∘EasyRanges.minus, Tuple(B), ranges(A)))
-
-Base.:(-)(A::CartesianIndices{N}, B::Point{N,<:Integer}) where {N} =
-    CartesianIndices(map(EasyRanges.forward∘EasyRanges.minus, ranges(A), Tuple(B)))
-Base.:(-)(A::Point{N,<:Integer}, B::CartesianIndices{N}) where {N} =
-    CartesianIndices(map(EasyRanges.forward∘EasyRanges.minus, Tuple(A), ranges(B)))

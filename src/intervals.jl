@@ -25,31 +25,6 @@ start, stop = extrema(I) # throws if `I` is empty
 Interval(start::T, stop::T) where {T} = Interval{T}(start, stop)
 Interval(start, stop) = Interval(promote(start, stop)...)
 
-# Extend base methods for intervals.
-Base.first(I::Interval) = I.start
-Base.last(I::Interval) = I.stop
-Base.isempty(I::Interval) = !(I.start ≤ I.stop)
-Base.minimum(I::Interval) = (assert_nonempty(I); return I.start)
-Base.maximum(I::Interval) = (assert_nonempty(I); return I.stop)
-Base.extrema(I::Interval) = (assert_nonempty(I); return (I.start, I.stop))
-assert_nonempty(I::Interval) =
-    isempty(I) ? throw(ArgumentError("interval must be non-empty")) : nothing
-
-Base.ndims( ::Interval) = 1
-Base.ndims( ::Type{<:Interval}) = 1
-Base.eltype(::Type{<:Interval{T}}) where {T} = T
-
-# NOTE The result is irrelevant if interval is empty.
-Base.clamp(x::T, I::Interval{T}) where {T} = clamp(x, I.start, I.stop)
-Base.clamp(x, I::Interval) = clamp(promote(x, I.start, I.stop)...)
-
-# Note that `isequal` falls back to `==`.
-Base.:(==)(A::Point{N}, B::Point{N}) where {N} = (A.coords == B.coords)
-Base.:(==)(A::Interval, B::Interval) =
-    (isempty(A) & isempty(B)) | ((A.start == B.start) & (A.stop == B.stop))
-Base.:(==)(A::BoundingBox{N}, B::BoundingBox{N}) where {N} =
-    (isempty(A) && isempty(B)) || ((A.start == B.start) && (A.stop == B.stop))
-
 """
     I = Interval(rng::AbstractRange)
 
@@ -71,11 +46,3 @@ can be noted that this kind of conversion is restricted to unit-step ranges.
 
 """
 Interval(rng::AbstractRange) = Interval(endpoints(rng)...)
-
-"""
-    ImageProcessing.intervals(x)
-
-yields a tuple of intervals representing object `x`.
-
-"""
-intervals(I::Interval) = (I,)

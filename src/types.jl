@@ -10,6 +10,14 @@ const unspecified = Unspecified()
 @public Unspecified unspecified
 @doc unspecified Unspecified
 
+"""
+    AtLeastOne{T}
+
+is an alias for n-tuples of at least one element of type `T`.
+
+"""
+const AtLeastOne{T} = Tuple{T,Vararg{T}}
+
 struct Interval{T}
     start::T
     stop::T
@@ -78,9 +86,9 @@ See also [`BoundingBox`](@ref), [`IntervalLike`](@ref), and [`PointLike`](@ref).
 """
 const BoundingBoxLike{N} = Union{BoundingBox{N},CartesianIndices{N},NTuple{N,IntervalLike}}
 
-# The following must hold for `IndexBox{N}` to be a concrete type for a given `N` provided
-# it is consistent.
-@assert isconcretetype(UnitRange{Int})
+# Since Julia 1.6 CartesianIndices may have non-unit steps.
+const ContiguousCartesianIndices{N} =
+    CartesianIndices{N,<:NTuple{N,AbstractUnitRange{<:Integer}}}
 
 struct OnlineSum{T,N,A<:AbstractArray{<:Any,N},B<:AbstractArray{<:Any,N}}
     den::A # array to store the integrated denominator

@@ -115,13 +115,30 @@ default_weights(A::AbstractArray) = FastUniformArray(one(eltype(A)), axes(A))
 @public default_weights
 
 """
-    endpoints(S) -> a, b
+    ImageProcessing.intervals(x)
 
-yields the *end-points* `a` and `b` of `S` such that `a ≤ x ≤ b` holds for all `x ∈ S`. If
+yields a tuple of intervals representing object `x`.
+
+""" intervals
+@public intervals
+intervals(I::Interval) = (I,)
+intervals(B::Union{BoundingBox,ContiguousCartesianIndices}) =
+    map(Interval, Tuple(first(B)), Tuple(last(B)))
+
+"""
+    endpoints(S) -> start, stop
+
+yields the *end-points* `start` and `stop` of `S` such that for all `x ∈ S`:
+
+- `start ≤ x ≤ stop` holds if `S` is an interval, a range, or a collection;
+
+- `start[i] ≤ x[i] ≤ stop[i]` holds for all indices `i` if `S` is an hyper rectangular
+  region (e.g. a bounding-box or an instance of `CartesianIndices`).
 
 Contrary to `extrema(S)` which throws for empty sets or collections, `endpoints(S)`
-attempts to return `a` and `b` if possible. Hence, if `a ≤ b` does not hold, it may be
-because `S` is empty or contains unbounded values such as `NaN`s.
+attempts to return `start` and `stop` if possible. Hence, `start` and `stop` may be such
+that the above inequalities cannot hold for any `x` because, e.g., `S` is empty or
+contains unbounded values such as `NaN`s.
 
 """
 endpoints(I::Interval) = first(I), last(I)
@@ -131,28 +148,35 @@ function endpoints(R::AbstractRange)
     a, b, s = first(R), last(R), step(R)
     return s < zero(s) ? (b, a) : (a, b)
 end
-function endpoints(B::CartesianIndices)
-    tup = map(endpoints, ranges(B))
-    return CartesianIndex(map(first, tup)), CartesianIndex(map(last, tup))
+endpoints(A::AbstractArray) = isempty(A) ? endpoints_of_empty_set(eltype(A)) : extrema(A)
+
+# For Cartesian indices `B`, it cannot be just `(first(B),last(B))` because some of the
+# range steps may be negative.
+endpoints(B::CartesianIndices) = endpoints(CartesianIndex, B.indices)
+
+# Calls `endpoints` on a list of ranges and returns end-points of type `T`.
+@inline function endpoints(::Type{T}, rngs::NTuple{N,IntervalLike}) where {N,T}
+    e = map(endpoints, rngs)
+    return T(map(first, e)), T(map(last, e))
 end
-endpoints(A::AbstractArray) = isempty(A) ? endpoints_empty(eltype(A)) : extrema(A)
 
 # Fallback method assuming argument is an iterator.
 endpoints(iter) = _endpoints(Base.IteratorEltype(iter), Base.IteratorSize(iter), iter)
 _endpoints(::Base.HasEltype, ::Base.IteratorSize, iter) =
     # Iterator length unknown but element type known: returns the endpoints of an empty
     # interval if calling `extrema` fails (whatever the reason).
-    try; extrema(iter); catch; endpoints_empty(eltype(iter)); end
+    try; extrema(iter); catch; endpoints_of_empty_set(eltype(iter)); end
 _endpoints(::Base.HasEltype, ::Base.HasLength, iter) =
     # Iterator length and element type known: returns the endpoints of an empty interval
     # if length is zero, oterwise calls `extrema`.
-    length(iter) > 0 ? extrema(iter) : endpoints_empty(eltype(iter))
+    length(iter) > 0 ? extrema(iter) : endpoints_of_empty_set(eltype(iter))
 _endpoints(::Base.IteratorEltype, ::Base.IteratorSize, iter) =
     # Iterator length and element type both unknown: fallback to calling `extrema`.
     extrema(iter)
 
 # Yields the endpoints of an empty set of values of type `T`.
-endpoints_empty(::Type{T}) where {T} = (oneunit(T), zero(T))
+endpoints_of_empty_set(::Type{T}) where {T} = (oneunit(T), zero(T))
+endpoints_of_empty_set(::Type{Char}) = (Char(1), Char(0))
 
 """
     ImageProcessing.has_integer_coordinates(x)
@@ -227,6 +251,37 @@ end
 to_tuple(x::Tuple) = x
 to_tuple(x::Point) = Tuple(x)
 to_tuple(x::CartesianIndex) = Tuple(x)
+
+"""
+    all_between(x, lo, hi) -> bool
+
+yields whether `x`, `lo`, and `hi` are tuples of same length and such that `lo[i] ≤ x[i] ≤
+hi[i]` holds for all indices `i`.
+
+"""
+all_between(x, lo, hi) = false
+all_between(x::Tuple{}, lo::Tuple{}, hi::Tuple{}) = true
+all_between(x::Tuple{Any}, lo::Tuple{Any}, hi::Tuple{Any}) = first_between(x, lo, hi)
+@inline all_between(x::NTuple{N}, lo::NTuple{N}, hi::NTuple{N}) where {N} =
+    first_between(x, lo, hi) && all_between(tail(x), tail(lo), tail(hi))
+
+"""
+    first_between(x, lo, hi) -> bool
+
+yields whether `x`, `lo`, and `hi` are tuples of at least one element and such that `lo[1] ≤ x[1] ≤
+hi[1]`.
+
+"""
+first_between(x, lo, hi) = false
+first_between(x::AtLeastOne, lo::AtLeastOne, hi::AtLeastOne) = is_between(x[1], lo[1], hi[1])
+
+"""
+    is_between(x, lo, hi) -> bool
+
+yields whether `lo ≤ x ≤ hi` holds.
+
+"""
+is_between(x, lo, hi) = lo ≤ x ≤ hi
 
 """
     ImageProcessing.front(t::Tuple)

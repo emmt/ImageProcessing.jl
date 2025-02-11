@@ -14,3 +14,6 @@
 - Equivalence between points and static vectors.
 
 - `values(pnt::Point)` is merely an accident.
+
+- Extend `r = Base.broadcasted(op, x, y)` and `Base.materialize(r)` to map things like
+  `box + point` or `interval + value`.
