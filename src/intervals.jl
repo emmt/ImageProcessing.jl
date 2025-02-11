@@ -35,9 +35,20 @@ Base.extrema(I::Interval) = (assert_nonempty(I); return (I.start, I.stop))
 assert_nonempty(I::Interval) =
     isempty(I) ? throw(ArgumentError("interval must be non-empty")) : nothing
 
+Base.ndims( ::Interval) = 1
+Base.ndims( ::Type{<:Interval}) = 1
+Base.eltype(::Type{<:Interval{T}}) where {T} = T
+
 # NOTE The result is irrelevant if interval is empty.
 Base.clamp(x::T, I::Interval{T}) where {T} = clamp(x, I.start, I.stop)
 Base.clamp(x, I::Interval) = clamp(promote(x, I.start, I.stop)...)
+
+# Note that `isequal` falls back to `==`.
+Base.:(==)(A::Point{N}, B::Point{N}) where {N} = (A.coords == B.coords)
+Base.:(==)(A::Interval, B::Interval) =
+    (isempty(A) & isempty(B)) | ((A.start == B.start) & (A.stop == B.stop))
+Base.:(==)(A::BoundingBox{N}, B::BoundingBox{N}) where {N} =
+    (isempty(A) && isempty(B)) || ((A.start == B.start) && (A.stop == B.stop))
 
 """
     I = Interval(rng::AbstractRange)

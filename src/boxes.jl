@@ -36,8 +36,9 @@ start, stop = extrema(B) # throws if `B` is empty
 The syntax `B.intervals` yields the list of intervals that define the bounding-box `B`.
 
 """
-BoundingBox(start::Point{N,T}, stop::Point{N,T}) where {N,T} = BoundingBox{N,T}(start, stop)
-BoundingBox(start::Point{N}, stop::Point{N}) where {N} = BoundingBox(promote(start, stop)...)
+BoundingBox(   start::Point{N,T}, stop::Point{N,T}) where {N,T} = BoundingBox{N,T}(start, stop)
+BoundingBox(   start::Point{N},   stop::Point{N})   where {N}   = BoundingBox(promote(start, stop)...)
+BoundingBox{N}(start::Point{N},   stop::Point{N})   where {N}   = BoundingBox(start, stop)
 
 Base.:(:)(start::Point{N}, stop::Point{N}) where {N} = BoundingBox(start, stop)
 
@@ -58,6 +59,10 @@ Base.maximum(box::BoundingBox) = (assert_nonempty(box); return box.stop)
 Base.extrema(box::BoundingBox) = (assert_nonempty(box); return (box.start, box.stop))
 assert_nonempty(box::BoundingBox) =
     isempty(box) ? throw(ArgumentError("box must be non-empty")) : nothing
+
+Base.ndims(B::BoundingBox{N,T}) where {N,T} = N
+Base.ndims( ::Type{<:BoundingBox{N,T}}) where {N,T} = N
+Base.eltype(::Type{<:BoundingBox{N,T}}) where {N,T} = Point{N,T}
 
 """
     B = BoundingBox(R::CartesianIndices{N})

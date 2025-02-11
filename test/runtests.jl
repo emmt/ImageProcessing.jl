@@ -4,6 +4,8 @@ using Test
 
 using ImageProcessing: front, tail
 
+const Returns = ImageProcessing.Returns
+
 @testset "ImageProcessing.jl" begin
     @testset "Utilities" begin
         @test_throws ArgumentError front(())
@@ -19,7 +21,7 @@ using ImageProcessing: front, tail
         @testset "Miscellaneaous" begin
             @test_throws Exception Point(sin, "foo", 3)
         end
-        @testset "Point$coords" for coords in ((1,2,3), (-1f0,2f0), (-2e0, 0, 4f0, 0x5))
+        @testset "Point$coords" for coords in ((3//4,), (1,2,3), (-1f0,2f0), (-2e0, 0, 4f0, 0x5))
             N = length(coords)
             T = promote_type(map(typeof, coords)...)
             A = @inferred Point(coords)
@@ -41,6 +43,7 @@ using ImageProcessing: front, tail
             # Point as a tuple.
             @test A.coords === Tuple(A)
             @test A.coords === values(A)
+            @test A[:] === Tuple(A)
             @test keys(A) === Base.OneTo(N)
             @test eachindex(A) === keys(A)
             @test firstindex(A) === first(keys(A))
@@ -77,12 +80,13 @@ using ImageProcessing: front, tail
             @test A === +A
             @test map(-, A.coords) === Tuple(-A)
             # Multiplication and division by a scalar.
-            @test 2*A === Point(map(x->2*x, A.coords))
-            @test A*2 === Point(map(x->x*2, A.coords))
-            @test 2\A === Point(map(x->2\x, A.coords))
-            @test A/2 === Point(map(x->x/2, A.coords))
+            @test 2*A === Point(map(x -> 2*x, A.coords))
+            @test A*2 === Point(map(x -> x*2, A.coords))
+            @test 2\A === Point(map(x -> 2\x, A.coords))
+            @test A/2 === Point(map(x -> x/2, A.coords))
             # Addition and subtraction of points.
             B = 2*A
+            @test A + A === 2A
             @test A + B === Point(A.coords .+ B.coords)
             @test B + A === Point(B.coords .+ A.coords)
             @test A - B === Point(A.coords .- B.coords)
@@ -105,6 +109,8 @@ using ImageProcessing: front, tail
             @test A*(-one(A)) === -A
             @test one(A)\A == A
             @test A/one(A) == A
+            # `oneunit` yields Point(1,1,...).
+            @test Tuple(oneunit(A)) === ntuple(Returns(oneunit(eltype(A))), length(A))
         end
         @testset "Points and Cartesian indices" begin
             I = CartesianIndex(-1,2,3)
@@ -125,58 +131,75 @@ using ImageProcessing: front, tail
 
     @testset "Boxes" begin
         # 0-dimensional box.
-        B = @inferred IndexBox()
-        @test B == @inferred IndexBox{0}()
-        @test size(B) == ()
-        @test length(B) == 1
+        @test_throws ErrorException BoundingBox()
+        @test_throws ErrorException BoundingBox{0}()
+        B = @inferred BoundingBox{0,Int16}()
+        @test B.start == B.stop == Point{0,Int16}()
+        @test B.intervals == ()
+        @test !isempty(B)
+        @test ndims(B) == 0
+        @test eltype(B) == Point{0,Int16}
         # 1-dimensional box.
-        for rngs in ((0x2:0x3,), (Base.OneTo(7), -1:4,))
+        for rngs in ((0x2:0x3,), (Base.OneTo(7), Int16(-1):Int16(4),))
             N = length(rngs)
-            start = map(first, rngs)
-            stop = map(last, rngs)
-            B = @inferred IndexBox(rngs)
-            @test B.indices == rngs
-            @test B === @inferred IndexBox(rngs...)
-            @test B === @inferred IndexBox{N}(rngs)
-            @test B === @inferred IndexBox{N}(rngs...)
-            @test B === @inferred IndexBox(CartesianIndex(start), CartesianIndex(stop))
-            @test B === @inferred IndexBox{N}(CartesianIndex(start), CartesianIndex(stop))
-            @test B === @inferred IndexBox(Point(start), Point(stop))
-            @test B === @inferred IndexBox{N}(Point(start), Point(stop))
-            @test ndims(B) === length(rngs)
-            @test ndims(typeof(B)) === length(rngs)
-            @test size(B) === map(length, rngs)
-            @test length(B) == prod(map(length, rngs))
-            @test isempty(B) == (length(B) == 0)
+            T = promote_type(map(eltype, rngs)...)
+            start = Point(map(first, rngs))
+            stop = Point(map(last, rngs))
+            B = @inferred BoundingBox(rngs)
+            @test eltype(B) === Point{N,T}
+            @test ndims(B) === N
+            @test ndims(B) === ndims(typeof(B))
+            @test ndims(B) === ndims(B.start)
+            @test ndims(B) === ndims(B.stop)
+            @test ndims(B) === length(B.intervals)
+            @test isempty(B) == !(start <= stop)
+            @test B.start == start
+            @test B.stop == stop
+            @test B.intervals === map(Interval, start.coords, stop.coords)
+            @test first(B) === B.start
+            @test last(B) === B.stop
+            @test endpoints(B) === (B.start, B.stop)
+            @test B.intervals == map(Interval, rngs)
+            @test B === @inferred BoundingBox(rngs...)
+            @test B === @inferred BoundingBox{N}(rngs)
+            @test B === @inferred BoundingBox{N}(rngs...)
+            @test B === @inferred BoundingBox{N,T}(rngs)
+            @test B === @inferred BoundingBox{N,T}(rngs...)
+            @test B === @inferred BoundingBox(start, stop)
+            @test B === @inferred BoundingBox{N}(start, stop)
+            @test B === @inferred BoundingBox{N,T}(start, stop)
+            @test B === @inferred (start : stop)
+            @test B === @inferred BoundingBox(B)
+            @test B === @inferred BoundingBox{N}(B)
+            @test B === @inferred BoundingBox{N,T}(B)
+            C = @inferred BoundingBox{N,Int8}(start, stop)
+            @test B !== C
+            @test B  == C
+            @test B === @inferred convert(BoundingBox, B)
+            @test B === @inferred convert(BoundingBox{N}, B)
+            @test B === @inferred convert(BoundingBox{N,T}, B)
+            @test C === @inferred convert(BoundingBox{N,Int8}, B)
+            C = @inferred BoundingBox{N,Int}(B)
+            @test B == C
+            @test C isa BoundingBox{N,Int}
+            @test C === @inferred BoundingBox(       CartesianIndex(start), CartesianIndex(stop))
+            @test C === @inferred BoundingBox{N}(    CartesianIndex(start), CartesianIndex(stop))
+            @test C === @inferred BoundingBox{N,Int}(CartesianIndex(start), CartesianIndex(stop))
             R = CartesianIndices(rngs)
-            @test B.indices == R.indices
-            @test R == @inferred CartesianIndices(B)
-            @test B == @inferred IndexBox(B)
-            @test B === @inferred convert(IndexBox, B)
-            @test B === @inferred convert(IndexBox{N}, B)
-            @test B === @inferred convert(IndexBox, R)
-            @test B === @inferred convert(IndexBox{N}, R)
-            @test R == @inferred convert(CartesianIndices, B)
-            @test R == @inferred convert(CartesianIndices{N}, B)
-
-            @test first(B) === CartesianIndex(start)
-            @test last(B) === CartesianIndex(stop)
-            @test first(CartesianIndex, B) === CartesianIndex(start)
-            @test last(CartesianIndex, B) === CartesianIndex(stop)
-            @test first(CartesianIndex{N}, B) === CartesianIndex(start)
-            @test last(CartesianIndex{N}, B) === CartesianIndex(stop)
-            @test_throws Exception first(CartesianIndex{N+1}, B)
-            @test_throws Exception last(CartesianIndex{N+1}, B)
-            @test first(Point, B) === Point{N,Int}(start)
-            @test last(Point, B) === Point{N,Int}(stop)
-            @test first(Point{N}, B) === Point{N,Int}(start)
-            @test last(Point{N}, B) === Point{N,Int}(stop)
-            @test first(Point{N,Int}, B) === Point{N,Int}(start)
-            @test last(Point{N,Int}, B) === Point{N,Int}(stop)
-            @test first(Point{N,Float32}, B) === Point{N,Float32}(start)
-            @test last(Point{N,Float32}, B) === Point{N,Float32}(stop)
-            @test_throws Exception first(Point{N+1}, B)
-            @test_throws Exception last(Point{N+1}, B)
+            @test endpoints(B) === (first(B), last(B))
+            @test endpoints(R) === (first(R), last(R))
+            @test endpoints(B) == map(Point,          endpoints(R))
+            @test endpoints(R) == map(CartesianIndex, endpoints(B))
+            @test   R ⊆ B  # the discrete set is a subset of the continuous set
+            @test !(B ⊆ R) # but not the contrary
+            @test R == @inferred (B ∩ CartesianIndices)
+            @test R == @inferred (B ∩ CartesianIndices{N})
+            @test R == @inferred (CartesianIndices ∩ B)
+            @test R == @inferred (CartesianIndices{N} ∩ B)
+            # Conversion of a `BoundingBox` to `CartesianIndices` must be done by ∩, not
+            # by `convert` nor by the `CartesianIndices` constructor.
+            @test_throws Exception convert(CartesianIndices, B)
+            @test_throws Exception CartesianIndices(B)
         end
     end
 end

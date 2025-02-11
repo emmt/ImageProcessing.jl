@@ -78,8 +78,10 @@ Point{N,T}(i::CartesianIndex{N}) where {N,T} = Point{N,T}(Tuple(i))
 # checking cannot be avoided for tuples. For `Point`, Base methods `eltype` and `length`
 # follows the same semantics as `CartesianIndex`.
 Base.eltype(::Type{<:Point{N,T}}) where {N,T} = T
+Base.ndims( ::Type{<:Point{N,T}}) where {N,T} = N
 Base.length(::Type{<:Point{N,T}}) where {N,T} = N
-@inline Base.getindex(A::Point, i) = getindex(Tuple(A), i)
+Base.getindex(A::Point, ::Colon) = Tuple(A)
+Base.getindex(A::Point, i) = getindex(Tuple(A), i)
 Base.IteratorSize(::Type{<:Point}) = Base.HasLength()
 Base.IteratorEltype(::Type{<:Point}) = Base.HasEltype()
 @inline Base.iterate(iter::Point, i::Int = 1) =
@@ -101,8 +103,8 @@ for f in (:zero, :oneunit)
         Point{N,T}(ntuple(Returns($f(T)), Val(N)))
 end
 
-# These methods are "traits" and only depend on the type.
-for f in (:zero, :one, :oneunit, :length, :eltype)
+# Some methods are "traits" that only depend on the type.
+for f in (:zero, :one, :oneunit, :eltype, :ndims, :length)
     @eval Base.$f(::Point{N,T}) where {N,T} = $f(Point{N,T})
 end
 
