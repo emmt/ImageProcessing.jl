@@ -157,14 +157,17 @@ end
     return Point(map(first, t)), Point(map(last, t))
 end
 
-Base.show(io::IO, x::Point) = show(io, MIME"text/plain"(), x)
-function Base.show(io::IO, ::MIME"text/plain", x::Point{N}) where {N}
-    print(io, "Point{", N, "}{")
-    for i in 1:N
-        i > 1 && print(io, ", ")
-        show(io, x[i])
+Base.show(io::IO,                      x::Point) = show(io, MIME"text/plain"(), x)
+Base.show(io::IO, m::MIME"text/plain", x::Point) = _show(io, m, x)
+Base.show(io::IO, m::MIME,             x::Point) = _show(io, m, x)
+function _show(io::IO, m::MIME, x::Point{N}) where {N}
+    show(io, m, typeof(x))
+    write(io, "(")
+    @inbounds for i in 1:N
+        i > 1 && write(io, ", ")
+        show(io, m, x[i])
     end
-    print(io, ")")
+    write(io, ")")
 end
 
 struct Round{T,R<:RoundingMode}

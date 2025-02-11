@@ -131,14 +131,14 @@ Base.propertynames(::BoundingBox) = (:intervals, :start, :stop,)
 Base.show(io::IO, B::BoundingBox) = show(io, MIME"text/plain"(), B)
 function Base.show(io::IO, ::MIME"text/plain", B::BoundingBox{N}) where {N}
     show(io, typeof(B))
-    print(io, "(")
+    write(io, "(")
     flag = false
     for i in intervals(B)
         flag && print(io, ", ")
         print(io, first(i), ":", last(i))
         flag = true
     end
-    print(io, ")")
+    write(io, ")")
 end
 
 @propagate_inbounds Base.view(A::AbstractArray{<:Any,N}, B::BoundingBox{N,<:Integer}) where {N} =
