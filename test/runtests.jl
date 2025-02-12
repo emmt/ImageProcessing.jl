@@ -314,10 +314,18 @@ build(::Type{CartesianIndices}, start::CartesianIndex{N}, stop::CartesianIndex{N
             @test endpoints(R) == map(CartesianIndex, endpoints(B))
             @test   R ⊆ B  # the discrete set is a subset of the continuous set
             @test !(B ⊆ R) # but not the contrary
-            @test R == @inferred (B ∩ CartesianIndices)
-            @test R == @inferred (B ∩ CartesianIndices{N})
-            @test R == @inferred (CartesianIndices ∩ B)
-            @test R == @inferred (CartesianIndices{N} ∩ B)
+            if VERSION < v"1.3"
+                # Inference is broken here for old Julia versions.
+                @test R == (B ∩ CartesianIndices)
+                @test R == (B ∩ CartesianIndices{N})
+                @test R == (CartesianIndices ∩ B)
+                @test R == (CartesianIndices{N} ∩ B)
+            else
+                @test R == @inferred (B ∩ CartesianIndices)
+                @test R == @inferred (B ∩ CartesianIndices{N})
+                @test R == @inferred (CartesianIndices ∩ B)
+                @test R == @inferred (CartesianIndices{N} ∩ B)
+            end
             # Conversion of a `BoundingBox` to `CartesianIndices` must be done by ∩, not
             # by `convert` nor by the `CartesianIndices` constructor.
             @test_throws Exception convert(CartesianIndices, B)
