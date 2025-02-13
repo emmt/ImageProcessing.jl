@@ -62,14 +62,14 @@ counterpart.
 
 ## Installation
 
-To install  `ImageProcessing` so as to follow the main development branch:
+To install `ImageProcessing` so as to follow the main development branch:
 
 ``` julia
 using Pkg
 Pkg.add(url="https://github.com/emmt/ImageProcessing.jl")
 ```
 
-or from the prompt of Julia's package manager:
+or at the prompt of Julia's package manager (after typing `]` in Julia's REPL):
 
 ``` julia
 add https://github.com/emmt/ImageProcessing.jl
@@ -85,5 +85,5 @@ registry add https://github.com/emmt/EmmtRegistry
 add ImageProcessing
 ```
 
-Adding the `General` registry (2nd line of the above example) is mandatory to have access
+Adding the `General` registry (1st line of the above example) is mandatory to have access
 to the official Julia packages if you never have used the package manager before.
