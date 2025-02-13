@@ -36,13 +36,52 @@ See also [`Interval`](@ref), [`PointLike`](@ref), and [`BoundingBoxLike`](@ref).
 """
 const IntervalLike = Union{Interval,AbstractRange}
 
-struct Point{N,T}
-    coords::NTuple{N,T}
+"""
+    AbstractPoint{N,T} <: AbstractVector{N}
 
-    # The following inner constructor relies on the `convert` base method to convert the
-    # coordinates if needed.
-    Point{N,T}(coords::NTuple{N,Any}) where {N,T} = new{N,T}(coords)
-end
+is the abstract type of `N`-dimensional *points* having coordinates of type `T`. A point
+`p` is also an (generally immutable) abstract vector whose `i`-th coordinate is given by
+`p[i]`. For a point `p`, the number of coordinates given by `length(p)` is a *trait*: it
+is inferable from the type.
+
+For concrete point types, say `PointType`, apart from constructors given the coordinates,
+at least the method `Base.values(p::PointType)` must be specialized to yield an indexable
+(e.g. vector or tuple) list of the coordinates of `p`. In the API for abstract points,
+points are assumed to have 1-based indices. If this is not the case, the base methods
+`firstindex`, `lastindex`, and `keys` must also be specialized. For example:
+
+```julia
+Base.values(p::PointType) = p.coords
+Base.firstindex(p::PointType) = ...
+Base.lastindex(p::PointType) = length(p) - 1 + firstindex(p)
+Base.keys(p::PointType) = firstindex(p):lastindex(p)
+```
+
+The default API is:
+
+```julia
+Base.IndexStyle(::Type{<:AbstractPoint}) = IndexLinear()
+Base.length(p::AbstractVector{N,T}) where {N,T} = N
+Base.firstindex(p::AbstractPoint) = 1
+Base.lastindex(p::AbstractPoint) = length(p)
+Base.keys(p::AbstractPoint) = Base.OneTo(length(p))
+@propagate_inbounds Base.getindex(p::AbstractPoint, i) = getindex(values(p), i)
+```
+
+You may also want to specialize `Base.Tuple(p::PointType)` which yields a tuple of the
+coordinates of the point `p` and whose default implementation is:
+
+```julia
+Base.Tuple(p::AbstractPoint{N,T}) where {N,T} = NTuple{N,T}(values(p))
+```
+
+This method is used in most methods implementing operations on the coordinates of abstract
+points.
+
+See also [`Point`](@ref), and [`PointLike`](@ref).
+
+"""
+abstract type AbstractPoint{N,T} <: AbstractVector{T} end
 
 """
     PointLike{N}
@@ -55,17 +94,27 @@ point.
 See also [`Point`](@ref), [`IntervalLike`](@ref), [`BoundingBoxLike`](@ref).
 
 """
-const PointLike{N} = Union{Point{N},CartesianIndex{N}}
+const PointLike{N} = Union{AbstractPoint{N},CartesianIndex{N}}
 # NOTE (1) The element type cannot be part of the signature because of Cartesian indices.
 #      (2) `NTuple{N}` won't work because there is no guaranties that conversion to
 #          a point is possoble.
 
 # Union of types to specify an `N`-dimensional Cartesian index.
-const CartesianIndexLike{N} = Union{CartesianIndex{N},NTuple{N,Integer},Point{N,Integer}}
+const CartesianIndexLike{N} = Union{CartesianIndex{N},NTuple{N,Integer},
+                                    AbstractPoint{N,<:Integer}}
 
 # Union of types to specify a position in an `N`-dimensional array with possibly
 # fractional coordinates.
-const ArrayNode{N,T<:Real} = Union{CartesianIndex{N},NTuple{N,T},Point{N,<:T}}
+const ArrayNode{N,T<:Real} = Union{CartesianIndex{N},NTuple{N,T},AbstractPoint{N,<:T}}
+
+struct Point{N,T} <: AbstractPoint{N,T}
+    coords::NTuple{N,T}
+
+    # The following inner constructor relies on the `convert` base method to convert the
+    # coordinates if needed. Since argument is an `N`-tuple, parameter `N` is guaranteed
+    # to be an `Int`, no needs to check.
+    Point{N,T}(coords::NTuple{N,Any}) where {N,T} = new{N,T}(coords)
+end
 
 struct BoundingBox{N,T}
     start::Point{N,T}

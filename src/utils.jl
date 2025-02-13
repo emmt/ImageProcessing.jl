@@ -213,14 +213,13 @@ const ComparisonOperator = Union{typeof(==),typeof(!=),
                                  typeof(<),typeof(<=),
                                  typeof(>),typeof(>=)}
 
-@inline function compare_coordinates(a::Union{Tuple,CartesianIndex,Point},
-                                     op::ComparisonOperator,
-                                     b::Union{Tuple,CartesianIndex,Point})
+@inline function compare_coordinates(a::PointLike{N}, op::ComparisonOperator,
+                                     b::PointLike{N}) where {N}
     return compare_coordinates(to_tuple(a), op, to_tuple(b))
 end
 
 # Error catcher.
-compare_coordinates(a::Tuple, op::ComparisonOperator, b::Tuple) =
+compare_coordinates(a::PointLike, op::ComparisonOperator, b::PointLike) =
     throw(ArgumentError(string("`compare_coordinates(a, ", op, ", b)` for `length(a) = ",
                                length(a), " and `length(b) = ", length(b), "`")))
 
@@ -249,7 +248,7 @@ end
 end
 
 to_tuple(x::Tuple) = x
-to_tuple(x::Point) = Tuple(x)
+to_tuple(x::AbstractPoint) = Tuple(x)
 to_tuple(x::CartesianIndex) = Tuple(x)
 
 """

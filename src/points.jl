@@ -43,70 +43,108 @@ The following math functions can be applied to points:
 
 """ Point
 
-# Outer constructors and error catchers (needed to avoid stack overflow).
+# Outer constructors force a common concrete type and error catchers (to avoid stack
+# overflow).
+#
+# NOTE My understanding is that a tuple can only be an `NTuple{N,T} where {N,T}` for
+#      concrete type `T` otherwise it can only be a `NTuple{N,Any} where {N}`. This is
+#      used to dispatch on these 2 possibilities so as to avoid `promote_type` if
+#      possible.
 Point(coords...) = Point(coords)
 Point(coords::NTuple{N,T}) where {N,T} = Point{N,T}(coords)
-@inline Point(coords::NTuple{N,Any}) where {N} =
-    Point{N,to_same_concrete_type(map(typeof, coords)...)}(coords)
+@inline function Point(coords::NTuple{N,Any}) where {N}
+    T = promote_type(map(typeof, coords)...)
+    isconcretetype(T) || throw(ArgumentError(
+        "coordinates cannot be converted to a common concrete type, you may explictly specify the type parameter `T` in constructor `Point{N,T}`"))
+    return Point{N,T}(coords)
+end
 
 Point{N}(coords...) where {N} = Point{N}(coords)
 Point{N}(coords::NTuple{N,Any}) where {N} = Point(coords)
-Point{N}(coords::Tuple) where {N} =
-    error("invalid $(length(coords))-tuple of coordinates for $N-dimensional point")
+Point{N}(coords::Tuple) where {N} = bad_point(N, Any, coords)
 
 Point{N,T}(coords...) where {N,T} = Point{N,T}(coords)
-Point{N,T}(coords::Tuple) where {N,T} =
-    error("invalid $(length(coords))-tuple of coordinates for $N-dimensional point")
+Point{N,T}(coords::Tuple) where {N,T} = bad_point(N, T, coords)
+
+# Cascading error catchers.
+@noinline bad_point(N, T, coords) = throw(ArgumentError(
+    "type parameter `T` in `Point{N,T}` must be a data type"))
+@noinline bad_point(N, T::Type, coords) = throw(ArgumentError(
+    "type parameter `N` in `Point{N,T}` must be an `Int`, got `$(typeof(N))`"))
+@noinline function bad_point(N::Int, T::Type, coords)
+    coords isa Tuple && length(coords) != N && throw(ArgumentError(
+        "invalid $(length(coords))-tuple of coordinates for $N-dimensional point"))
+    throw(ArgumentError(
+        "invalid coordinates of type `typeof(coords)` for `Point{$N,$T}`"))
+end
 
 # 0-dimensional points are supported but type parameter `T` must be specified.
 Point{0,T}() where {T} = Point{0,T}(())
 Point(coords::Tuple{}) = error("missing type parameter `T` for 0-dimensional point")
 
-# A point with integer coordinates can be automatically converted (i.e. by `convert`) into
-# a Cartesian index and conversely.
-Base.CartesianIndex(   p::Point{N}) where {N} = CartesianIndex(NTuple{N,Int}(Tuple(p)))
-Base.CartesianIndex{N}(p::Point{N}) where {N} = CartesianIndex(p)
+# Conversion of Cartesian indices and abstract points into points.
+for type in (:AbstractPoint, :CartesianIndex)
+    @eval begin
+        Point(     x::$type{N}) where {N}   = Point{N}(  Tuple(x))
+        Point{N}(  x::$type{N}) where {N}   = Point{N}(  Tuple(x))
+        Point{N,T}(x::$type{N}) where {N,T} = Point{N,T}(Tuple(x))
+        Base.convert(::Type{Point},      x::$type{N}) where {N}   = Point(     Tuple(x))
+        Base.convert(::Type{Point{N}},   x::$type{N}) where {N}   = Point{N}(  Tuple(x))
+        Base.convert(::Type{Point{N,T}}, x::$type{N}) where {N,T} = Point{N,T}(Tuple(x))
+    end
+end
 
-Base.convert(::Type{CartesianIndex},    p::Point{N,<:Integer}) where {N} = CartesianIndex(p)
-Base.convert(::Type{CartesianIndex{N}}, p::Point{N,<:Integer}) where {N} = CartesianIndex(p)
+# Accessor.
+Base.values(p::AbstractPoint) = getfield(p, :coords)
 
-Point(     i::CartesianIndex{N}) where {N}   = Point{N}(  Tuple(i))
-Point{N}(  i::CartesianIndex{N}) where {N}   = Point{N}(  Tuple(i))
-Point{N,T}(i::CartesianIndex{N}) where {N,T} = Point{N,T}(Tuple(i))
+# Optimized conversion of points to tuples. The `Point` constructors already implement
+# conversion from tuples.
+Base.Tuple(p::Point) = values(p)
+
+#-----------------------------------------------------------------------------------------
+# Implement abstract vector API for abstract points.
+Base.length(p::AbstractPoint{N,T}) where {N,T} = N
+Base.size(p::AbstractPoint) = (length(p),)
+Base.axes(p::AbstractPoint) = (keys(p),)
+Base.IndexStyle(::Type{<:AbstractPoint}) = IndexLinear()
+Base.firstindex(p::AbstractPoint) = 1
+Base.lastindex(p::AbstractPoint) = length(p)
+Base.keys(p::AbstractPoint) = Base.OneTo(length(p))
+Base.getindex(p::AbstractPoint, ::Colon) = values(p)
+@propagate_inbounds Base.getindex(p::AbstractPoint, i) = getindex(values(p), i)
+Base.Tuple(p::AbstractPoint{N,T}) where {N,T} = NTuple{N,T}(values(p))
+Base.NTuple(p::AbstractPoint) = Tuple(p)
+Base.NTuple{N}(p::AbstractPoint{N}) where {N} = Tuple(p)
+Base.NTuple{N,T}(p::AbstractPoint{N,T}) where {N,T} = Tuple(p)
+Base.NTuple{N,T}(p::AbstractPoint{N}) where {N,T} = NTuple{N,T}(Tuple(p))
+Base.convert(::Type{T}, p::AbstractPoint) where {T<:Tuple} = convert(T, Tuple(p))
 
 # Implement part of the API of `N`-tuples and iterators. NOTE: For `getindex`, bound
 # checking cannot be avoided for tuples. For `Point`, Base methods `eltype` and `length`
 # follows the same semantics as `CartesianIndex`.
-Base.length(::Type{<:Point{N,T}}) where {N,T} = N
-Base.getindex(p::Point, ::Colon) = Tuple(p)
-Base.getindex(p::Point, i) = getindex(Tuple(p), i)
-Base.IteratorSize(::Type{<:Point}) = Base.HasLength()
-Base.IteratorEltype(::Type{<:Point}) = Base.HasEltype()
-@inline Base.iterate(iter::Point, i::Int = 1) =
-    1 ≤ i ≤ length(iter) ? (iter[i], i + 1) : nothing
+Base.IteratorSize(::Type{<:AbstractPoint}) = Base.HasLength()
+Base.IteratorEltype(::Type{<:AbstractPoint}) = Base.HasEltype()
+@propagate_inbounds Base.iterate(iter::AbstractPoint, i::Int = firstindex(iter)) =
+    # NOTE Bounds are always checked for tuples, so only check upper bound.
+    i ≤ lastindex(iter) ? (iter[i], i + 1) : nothing
 
-Base.firstindex(p::Point) = 1
-Base.lastindex(p::Point) = length(p)
-Base.eachindex(p::Point) = Base.OneTo(length(p))
-Base.eachindex(::IndexLinear, p::Point) = Base.OneTo(length(p))
-Base.keys(p::Point) = eachindex(p)
-Base.values(p::Point) = Tuple(p)
+# An abstract point with integer coordinates can be automatically converted (i.e. by
+# `convert`) into a Cartesian index.
+for type in (:(Base.CartesianIndex), :(Base.CartesianIndex{N}))
+    @eval begin
+        $type(p::AbstractPoint{N,<:Integer}) where {N} = CartesianIndex(Tuple(p))
+        Base.convert(::Type{$type}, p::AbstractPoint{N,<:Integer}) where {N} =
+            CartesianIndex(p)
+    end
+end
 
-# Conversion of points to tuples. The `Point` constructors already implement conversion
-# from tuples.
-Base.Tuple(p::Point) = getfield(p, :coords)
-Base.NTuple(p::Point) = Tuple(p)
-Base.NTuple{N}(p::Point{N}) where {N} = Tuple(p)
-Base.NTuple{N,T}(p::Point{N}) where {N,T} = NTuple{N,T}(Tuple(p))
-Base.convert(::Type{T}, p::Point) where {T<:Tuple} = convert(T, Tuple(p))
-
-Base.show(io::IO,                      p::Point) = show(io, MIME"text/plain"(), p)
-Base.show(io::IO, m::MIME"text/plain", p::Point) = _show(io, m, p)
-Base.show(io::IO, m::MIME,             p::Point) = _show(io, m, p)
-function _show(io::IO, m::MIME, p::Point{N}) where {N}
+Base.show(io::IO,                      p::AbstractPoint) = show(io, MIME"text/plain"(), p)
+Base.show(io::IO, m::MIME"text/plain", p::AbstractPoint) = _show(io, m, p)
+Base.show(io::IO, m::MIME,             p::AbstractPoint) = _show(io, m, p)
+function _show(io::IO, m::MIME, p::AbstractPoint{N}) where {N}
     show(io, m, typeof(p))
     write(io, "(")
-    @inbounds for i in 1:N
+    for i in 1:N
         i > 1 && write(io, ", ")
         show(io, m, p[i])
     end

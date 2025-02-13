@@ -1,6 +1,7 @@
 module ImageProcessing
 
 export
+    AbstractPoint,
     BoundingBox,
     BoundingBoxLike,
     Interval,

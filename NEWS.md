@@ -11,6 +11,8 @@ Non-breaking changes:
   indices.
 - Non-exported public method `ImageProcessing.has_integer_coordinates(x)` to check whether
   `x` has integer coordinates.
+- `Point{N,T}` inherits from `AbstractPoint{N,T}` which is an abstract vector. Most of the
+  point API is available for abstract points.
 - New types `Interval{T}` and `BoundingBox{N,T}` to represent continuous intervals of
   values of type `T` and hyper-rectangular `N`-dimensional continuous regions of
   `N`-dimensional points of coordinate type `T` and with axes aligned with the Cartesian
@@ -21,6 +23,9 @@ Breaking changes:
   more general than the latter which is discrete. The rational is that continuous sets are
   more flexible for coordinates computations and may be converted to some discrete
   approximation after having performed all necessary computations.
+- Non-exported public methods `to_dim`, `to_axis`, `to_size`, and `to_axes` have been
+  removed. Use `as_array_dim`, `as_array_axis`, `as_array_size`, and `as_array_axes` from
+  the `TypeUtils` package instead.shapes.
 
 # Version 0.2.0
 

@@ -9,7 +9,6 @@ Base.ndims( ::Type{<:Interval{<:Point{N}}}) where {N} = N
 Base.ndims( ::Type{<:BoundingBox{N,T}}) where {N,T} = N
 
 # Element type.
-Base.eltype(::Type{<:Point{N,T}}) where {N,T} = T
 Base.eltype(::Type{<:Interval{T}}) where {T} = T
 Base.eltype(::Type{<:BoundingBox{N,T}}) where {N,T} = Point{N,T}
 
@@ -44,8 +43,8 @@ Base.clamp(x::T, I::Interval{T}) where {T} = clamp(x, I.start, I.stop)
 Base.clamp(x, I::Interval) = clamp(promote(x, I.start, I.stop)...)
 
 # Convert to floating-point.
-Base.float(p::Point{N,<:AbstractFloat}) where {N} = p
-Base.float(p::Point) = Point(map(float, Tuple(p)))
+Base.float(p::AbstractPoint{N,<:AbstractFloat}) where {N} = p
+Base.float(p::AbstractPoint) = Point(map(float, Tuple(p)))
 
 Base.float(i::Interval{<:AbstractFloat}) = i
 Base.float(i::Interval) = Interval(float(first(i)), float(last(i)))
@@ -53,33 +52,24 @@ Base.float(i::Interval) = Interval(float(first(i)), float(last(i)))
 Base.float(b::BoundingBox{N,<:AbstractFloat}) where {N} = b
 Base.float(b::BoundingBox) = BoundingBox(float(first(b)), float(last(b)))
 
-# For points and bounding-boxes, constructors from an instance of the same class,
-# `convert`, `convert_eltype`, and `promote_rule` are similar.
-for class in (:Point, :BoundingBox)
+# Constructors from an instance of the same class and `convert` are similar for points and
+# bounding-boxes.
+for type in (:Point, :BoundingBox)
     @eval begin
-        $class(     x::$class)                  = x
-        $class{N}(  x::$class{N})   where {N}   = x
-        $class{N,T}(x::$class{N,T}) where {N,T} = x
+        $type(     x::$type)                  = x
+        $type{N}(  x::$type{N})   where {N}   = x
+        $type{N,T}(x::$type{N,T}) where {N,T} = x
 
-        Base.convert(::Type{$class},      x::$class)                  = x
-        Base.convert(::Type{$class{N}},   x::$class{N})   where {N}   = x
-        Base.convert(::Type{$class{N,T}}, x::$class{N,T}) where {N,T} = x
-        Base.convert(::Type{$class{N,T}}, x::$class{N})   where {N,T} = $class{N,T}(x)
-
-        TypeUtils.convert_eltype(::Type{T}, ::Type{<:$class{N}}) where {N,T} = $class{N,T}
-
-        Base.promote_rule(::Type{$class{N,T1}}, ::Type{$class{N,T2}}) where {N,T1,T2} =
-            $class{N,promote_type(T1,T2)}
+        Base.convert(::Type{$type},      x::$type)                  = x
+        Base.convert(::Type{$type{N}},   x::$type{N})   where {N}   = x
+        Base.convert(::Type{$type{N,T}}, x::$type{N,T}) where {N,T} = x
+        Base.convert(::Type{$type{N,T}}, x::$type{N})   where {N,T} = $type{N,T}(x)
     end
 end
 # ... we just have to provide conversion to a different element type.
-Point{N,T}(pnt::Point{N}) where {N,T} = Point{N,T}(Tuple(pnt))
 BoundingBox{N,T}(b::BoundingBox{N}) where {N,T} = BoundingBox{N,T}(first(b), last(b))
-# ... in addition a cartesian index can be promoted to a point.
-Base.promote_rule(::Type{CartesianIndex{N}}, ::Type{Point{N,T}}) where {N,T} =
-    Point{N,promote_type(T,Int)}
 
-# For intervals, conversions and promote rules are also similar but there is no
+# For intervals, constructors and conversions are also similar but there is no
 # dimensionality to consider.
 Interval(   i::Interval)              = i
 Interval{T}(i::Interval{T}) where {T} = i
@@ -88,19 +78,32 @@ Interval{T}(i::Interval)    where {T} = Interval{T}(first(i), last(i))
 Base.convert(::Type{Interval},    i::Interval)              = i
 Base.convert(::Type{Interval{T}}, i::Interval{T}) where {T} = i
 Base.convert(::Type{Interval{T}}, i::Interval)    where {T} = Interval{T}(i)
-#
-TypeUtils.convert_eltype(::Type{T}, ::Type{<:Interval}) where {T} = Interval{T}
-#
+
+# Rules for type promotion.
 Base.promote_rule(::Type{Interval{T1}}, ::Type{Interval{T2}}) where {T1,T2} =
-    Interval{to_same_concrete_type(T1, T2)}
+    Interval{promote_type(T1, T2)}
+Base.promote_rule(::Type{BoundingBox{N,T1}}, ::Type{BoundingBox{N,T2}}) where {N,T1,T2} =
+    BoundingBox{N, promote_type(T1, T2)}
+Base.promote_rule(::Type{<:AbstractPoint{N,T1}}, ::Type{<:AbstractPoint{N,T2}}) where {N,T1,T2} =
+    Point{N, promote_type(T1, T2)}
+Base.promote_rule(::Type{CartesianIndex{N}}, ::Type{<:AbstractPoint{N,T}}) where {N,T} =
+    Point{N, promote_type(Int, T)}
+
+# Rules for converting element type.
+TypeUtils.convert_eltype(::Type{T}, ::Type{<:BoundingBox{N}}) where {N,T} = BoundingBox{N,T}
+TypeUtils.convert_eltype(::Type{T}, ::Type{<:Interval}) where {T} = Interval{T}
+TypeUtils.convert_eltype(::Type{T}, ::Type{<:Point{N}}) where {N,T} = Point{N,T}
+TypeUtils.convert_eltype(::Type{T}, p::AbstractPoint) where {T} =
+    # We must override the rule for abstract arrays in `TypeUtils`.
+    as(convert_eltype(T, typeof(p)), p)
 
 # Unary plus.
-Base.:(+)(p::Point) = p
+Base.:(+)(p::AbstractPoint) = p
 Base.:(+)(i::Interval) = i
 Base.:(+)(b::BoundingBox) = b
 
 # Unary minus.
-Base.:(-)(p::Point) = Point(map(-, Tuple(p)))
+Base.:(-)(p::AbstractPoint) = Point(map(-, Tuple(p)))
 Base.:(-)(i::Interval) = Interval(-last(i), -first(i))
 Base.:(-)(b::BoundingBox) = BoundingBox(-last(b), -first(b))
 
@@ -112,25 +115,25 @@ Base.:(-)(b::BoundingBox) = BoundingBox(-last(b), -first(b))
 # `zero(x)`) for the multiplication and for the addition/subtraction.
 
 # `one(x)` yields a multiplicative identity for x.
-Base.one(::Type{Point{N,T}}) where {N,T} = one(T)
+Base.one(::Type{<:AbstractPoint{N,T}}) where {N,T} = one(T)
 Base.one(::Type{Interval{T}}) where {T} = one(T)
 Base.one(::Type{BoundingBox{N,T}}) where {N,T} = one(T)
 
 # `zero(x)` is the neutral element for the addition.
-Base.zero(::Type{Point{N,T}}) where {N,T} = Point{N,T}(ntuple(Returns(zero(T)), Val(N)))
+Base.zero(::Type{<:AbstractPoint{N,T}}) where {N,T} = Point{N,T}(ntuple(Returns(zero(T)), Val(N)))
 Base.zero(::Type{Interval{T}}) where {T} = Interval{T}(zero(T), zero(T))
 Base.zero(::Type{BoundingBox{N,T}}) where {N,T} = BoundingBox{N,T}(zero(Point{N,T}), zero(Point{N,T}))
 
 # For points, `oneunit(x)` follows the same semantics as for Cartesian indices.
-Base.oneunit(::Type{Point{N,T}}) where {N,T} = Point{N,T}(ntuple(Returns(oneunit(T)), Val(N)))
+Base.oneunit(::Type{<:AbstractPoint{N,T}}) where {N,T} = Point{N,T}(ntuple(Returns(oneunit(T)), Val(N)))
 Base.oneunit(::Type{Interval{T}}) where {T} = Interval{T}(zero(T), oneunit(T))
 Base.oneunit(::Type{BoundingBox{N,T}}) where {N,T} = BoundingBox{N,T}(zero(Point{N,T}), oneunit(Point{N,T}))
 
 # Some methods are "traits" that only depend on the type.
-Base.length(p::Point) = length(typeof(p))
-for class in (:Point, :Interval, :BoundingBox)
-    for f in (:zero, :one, :oneunit, :eltype, :ndims)
-        @eval Base.$f(x::$class) = $f(typeof(x))
+for type in (:AbstractPoint, :Interval, :BoundingBox)
+    for f in (:zero, :one, :oneunit, :eltype)
+        f === :eltype && type === :AbstractPoint && continue
+        @eval Base.$f(x::$type) = $f(typeof(x))
     end
 end
 
@@ -138,8 +141,8 @@ end
 #
 # NOTE: Multiplication and division of intervals or bounding-boxes by a scalar follow the
 #       same rules.
-Base.:(*)(p::Point, alpha::Number) = alpha*p
-Base.:(*)(alpha::Number, p::Point) = Point(map(Base.Fix1(*, alpha), Tuple(p)))
+Base.:(*)(p::AbstractPoint, alpha::Number) = alpha*p
+Base.:(*)(alpha::Number, p::AbstractPoint) = Point(map(Base.Fix1(*, alpha), Tuple(p)))
 
 Base.:(*)(i::Interval, alpha::Real) = alpha*i
 function Base.:(*)(alpha::Real, i::Interval)
@@ -158,8 +161,8 @@ function Base.:(*)(alpha::Real, b::BoundingBox{N}) where {N}
 end
 
 # Division of points, intervals and bounding-boxes by a scalar.
-Base.:(\)(alpha::Number, p::Point) = p/alpha
-Base.:(/)(p::Point, alpha::Number) = Point(map(Base.Fix2(/, alpha), Tuple(p)))
+Base.:(\)(alpha::Number, p::AbstractPoint) = p/alpha
+Base.:(/)(p::AbstractPoint, alpha::Number) = Point(map(Base.Fix2(/, alpha), Tuple(p)))
 
 Base.:(\)(alpha::Real, i::Interval) = i/alpha
 function Base.:(/)(i::Interval, alpha::Real)
@@ -178,7 +181,9 @@ function Base.:(/)(b::BoundingBox{N}, alpha::Real) where {N}
 end
 
 # Binary operations between point-like objects.
-for (A, B) in ((:Point, :Point), (:Point, :CartesianIndex), (:CartesianIndex, :Point))
+for (A, B) in ((:AbstractPoint, :AbstractPoint),
+               (:AbstractPoint, :CartesianIndex),
+               (:CartesianIndex, :AbstractPoint))
     # Addition.
     @eval Base.:(+)(a::$A{N}, b::$B{N}) where {N} = Point(map(+, Tuple(a), Tuple(b)))
 
@@ -204,14 +209,14 @@ Base.:(+)(A::Interval, B::Interval) = +(promote(A, B)...)
 Base.:(-)(A::Interval, B::Interval) = -(promote(A, B)...)
 Base.:(+)(A::BoundingBox{N}, B::BoundingBox{N}) where {N} = +(promote(A, B)...)
 Base.:(-)(A::BoundingBox{N}, B::BoundingBox{N}) where {N} = -(promote(A, B)...)
-for class in (:Interval, :BoundingBox)
+for type in (:Interval, :BoundingBox)
     @eval begin
-        Base.:(+)(A::T, B::T) where {T<:$class} =
+        Base.:(+)(A::T, B::T) where {T<:$type} =
             isempty(A) ? B :
-            isempty(B) ? A : $class(first(A) + first(B), last(A) + last(B))
-        Base.:(-)(A::T, B::T) where {T<:$class} =
+            isempty(B) ? A : $type(first(A) + first(B), last(A) + last(B))
+        Base.:(-)(A::T, B::T) where {T<:$type} =
             isempty(A) ? B :
-            isempty(B) ? A : $class(first(A) - last(B), last(A) - first(B))
+            isempty(B) ? A : $type(first(A) - last(B), last(A) - first(B))
     end
 end
 
@@ -257,29 +262,20 @@ end
 
 # Shifting of Cartesian index ranges by adding/subtracting a point. The result is an
 # instance of `CartesinaIndices`.
-Base.:(+)(p::Point{N,<:Integer}, R::CartesianIndices{N}) where {N} = R + p
-Base.:(+)(R::CartesianIndices{N}, p::Point{N,<:Integer}) where {N} =
-    CartesianIndices(map(EasyRanges.plus, R.indices, to_int(p).coords))
-
-Base.:(-)(p::Point{N,<:Integer}, R::CartesianIndices{N}) where {N} =
-    CartesianIndices(map(EasyRanges.minus, to_int(p).coords, R.indices))
-
-Base.:(-)(R::CartesianIndices{N}, p::Point{N,<:Integer}) where {N} =
-    CartesianIndices(map(EasyRanges.minus, R.indices, to_int(p).coords))
-
-to_int(i::Int) = i
-to_int(i::Integer) = as(Int, i)
-to_int(p::Point{N,Int}) where {N} = p
-to_int(p::Point{N,<:Integer}) where {N} = Point{N,Int}(p)
-to_int(i::Interval{Int}) = i
-to_int(i::Interval{<:Integer}) = Interval{Int}(i)
-to_int(b::BoundingBox{N,Int}) where {N} = b
-to_int(b::BoundingBox{N,<:Integer}) where {N} = Bounding{N,Int}(b)
+Base.:(+)(p::AbstractPoint{N,<:Integer}, R::CartesianIndices{N}) where {N} = R + p
+Base.:(+)(R::CartesianIndices{N}, p::AbstractPoint{N,<:Integer}) where {N} =
+    EasyRanges.plus(R, CartesianIndex(p))
+Base.:(-)(p::AbstractPoint{N,<:Integer}, R::CartesianIndices{N}) where {N} =
+    EasyRanges.minus(CartesianIndex(p), R)
+Base.:(-)(R::CartesianIndices{N}, p::AbstractPoint{N,<:Integer}) where {N} =
+    EasyRanges.minus(R, CartesianIndex(p))
 
 # `min()`, `max()`, and `minmax()` for points work as for Cartesian indices.
-@inline Base.min(a::Point{N}, b::Point{N}) where {N} = Point(map(min, Tuple(a), Tuple(b)))
-@inline Base.max(a::Point{N}, b::Point{N}) where {N} = Point(map(max, Tuple(a), Tuple(b)))
-@inline function Base.minmax(a::Point{N}, b::Point{N}) where {N}
+@inline Base.min(a::AbstractPoint{N}, b::AbstractPoint{N}) where {N} =
+    Point(map(min, Tuple(a), Tuple(b)))
+@inline Base.max(a::AbstractPoint{N}, b::AbstractPoint{N}) where {N} =
+    Point(map(max, Tuple(a), Tuple(b)))
+@inline function Base.minmax(a::AbstractPoint{N}, b::AbstractPoint{N}) where {N}
     t = map(minmax, Tuple(a), Tuple(b))
     return Point(map(first, t)), Point(map(last, t))
 end
@@ -287,14 +283,14 @@ end
 # Some math functions.
 # NOTE `Base.hypot(Tuple(x::Point)...)` is a bit faster than
 #      `LinearAlgebra.norm2(Tuple(x::Point))`.
-LinearAlgebra.norm(a::Point) = hypot(a)
-LinearAlgebra.norm(a::Point, p::Real) = LinearAlgebra.norm(Tuple(a), p)
-Base.hypot(a::Point) = hypot(Tuple(a)...)
-Base.abs(a::Point) = hypot(a)
-Base.abs2(a::Point) = mapreduce(abs2, +, Tuple(a))
-Base.Math.atan(a::Point{2}) = atan(a[1], a[2])
-LinearAlgebra.dot(a::Point{N}, b::Point{N}) where {N} = mapreduce(*, +, Tuple(a), Tuple(b))
-LinearAlgebra.cross(a::Point{2}, b::Point{2}) = a[1]*b[2] - a[2]*b[1]
+LinearAlgebra.norm(a::AbstractPoint) = hypot(a)
+LinearAlgebra.norm(a::AbstractPoint, p::Real) = LinearAlgebra.norm(Tuple(a), p)
+Base.hypot(a::AbstractPoint) = hypot(Tuple(a)...)
+Base.abs(a::AbstractPoint) = hypot(a)
+Base.abs2(a::AbstractPoint) = mapreduce(abs2, +, Tuple(a))
+Base.Math.atan(a::AbstractPoint{2}) = atan(a[1], a[2])
+LinearAlgebra.dot(a::AbstractPoint{N}, b::AbstractPoint{N}) where {N} = mapreduce(*, +, Tuple(a), Tuple(b))
+LinearAlgebra.cross(a::AbstractPoint{2}, b::AbstractPoint{2}) = a[1]*b[2] - a[2]*b[1]
 
 #-----------------------------------------------------------------------------------------
 # Inclusion of a value in an interval.
@@ -302,29 +298,29 @@ Base.in(x, i::Interval) = is_between(x, first(i), last(i))
 
 # Inclusion of a point `p` in any set `S` that is iterable. More specific cases are
 # handled in what follows.
-Base.in(p::Point, S) = _any_is_equal(p, S)
-@inline _any_is_equal(p::Point, S) = any(==(p), S)
+Base.in(p::AbstractPoint, S) = _any_is_equal(p, S)
+@inline _any_is_equal(p::AbstractPoint, S) = any(==(p), S)
 
 # A point cannot be part of a collection if it is a collection of points of different
 # dimensionality. This provides a shortcase in some common cases. It just have to be done
 # with a signatue a bit more specific than above.
 
 # Inclusion of a point `p` in `A`, an array of points.
-Base.in(p::Point{N}, A::AbstractArray{<:Point{M}}) where {N,M} = false
-Base.in(p::Point{N}, A::AbstractArray{<:Point{N}}) where {N} = _any_is_equal(p, A)
+Base.in(p::AbstractPoint{N}, A::AbstractArray{<:Point{M}}) where {N,M} = false
+Base.in(p::AbstractPoint{N}, A::AbstractArray{<:Point{N}}) where {N} = _any_is_equal(p, A)
 
 # Inclusion of a point `p` in `A`, a tuple of points.
-Base.in(p::Point{N}, A::Tuple{Vararg{Point{M}}}) where {N,M}  = false
-Base.in(p::Point{N}, A::Tuple{Point{N},Vararg{Point{N}}}) where {N} = _any_is_equal(p, A)
+Base.in(p::AbstractPoint{N}, A::Tuple{Vararg{Point{M}}}) where {N,M}  = false
+Base.in(p::AbstractPoint{N}, A::Tuple{Point{N},Vararg{Point{N}}}) where {N} = _any_is_equal(p, A)
 
 # Inclusion of a point in a bounding-box or in Cartesian indices.
-Base.in(p::Point,    B::BoundingBox) = false
-Base.in(p::Point{N}, B::BoundingBox{N}) where {N} =
+Base.in(p::AbstractPoint,    B::BoundingBox) = false
+Base.in(p::AbstractPoint{N}, B::BoundingBox{N}) where {N} =
     all_between(Tuple(p), Tuple(first(B)), Tuple(last(B)))
 
 # Inclusion of a point in Cartesian indices. FIXME: uses R.indices.
-Base.in(x::Point,    R::CartesianIndices) = false
-Base.in(x::Point{N}, R::CartesianIndices{N}) where {N} =
+Base.in(x::AbstractPoint,    R::CartesianIndices) = false
+Base.in(x::AbstractPoint{N}, R::CartesianIndices{N}) where {N} =
     has_integer_coordinates(A) && all_between(Tuple(x), Tuple(first(R)), Tuple(last(R)))
 
 # Inclusion of a Cartesian index in a bounding-box.
@@ -518,7 +514,7 @@ end
 
 # Conversion of continuous sets can be done automatically for `EasyRange` because the
 # objective is to obtain a range of indices that belong to the interval.
-EasyRanges.normalize(p::Point{N,<:Integer}) where {N} = CartesianIndex(p)
+EasyRanges.normalize(p::AbstractPoint{N,<:Integer}) where {N} = CartesianIndex(p)
 EasyRanges.normalize(I::Interval) = I ∩ UnitRange{Int}
 EasyRanges.normalize(B::BoundingBox) = B ∩ CartesianIndices
 EasyRanges.ranges(I::Interval{<:Integer}) = (EasyRanges.normalize(I),)
@@ -676,87 +672,87 @@ end
 (::Round{T,R})(p) where {T,R} = round(T, p, R())
 
 # Rounding coordinates to a tuple.
-Base.round(::Type{Tuple}, p::Point{N,T}, r::RoundingMode = RoundNearest) where {N,T} =
+Base.round(::Type{Tuple}, p::AbstractPoint{N,T}, r::RoundingMode = RoundNearest) where {N,T} =
     round(NTuple{N,T}, p, r)
-Base.round(::Type{NTuple}, p::Point{N,T}, r::RoundingMode = RoundNearest) where {N,T} =
+Base.round(::Type{NTuple}, p::AbstractPoint{N,T}, r::RoundingMode = RoundNearest) where {N,T} =
     round(NTuple{N,T}, p, r)
-Base.round(::Type{NTuple{N}}, p::Point{N,T}, r::RoundingMode = RoundNearest) where {N,T} =
+Base.round(::Type{NTuple{N}}, p::AbstractPoint{N,T}, r::RoundingMode = RoundNearest) where {N,T} =
     round(Point{N,T}, p, r)
-Base.round(::Type{NTuple{N,T}}, p::Point{N}, r::RoundingMode = RoundNearest) where {N,T} =
+Base.round(::Type{NTuple{N,T}}, p::AbstractPoint{N}, r::RoundingMode = RoundNearest) where {N,T} =
     map(Round(T,r), Tuple(p))
-Base.round(::Type{NTuple{N,T}}, p::Point{N,T}, r::RoundingMode = RoundNearest) where {T<:Integer,N} =
+Base.round(::Type{NTuple{N,T}}, p::AbstractPoint{N,T}, r::RoundingMode = RoundNearest) where {T<:Integer,N} =
     Tuple(p)
 
 # Rounding coordinates to a point.
-Base.round(p::Point{N,T}, r::RoundingMode = RoundNearest) where {N,T} = round(Point{N,T}, p, r)
-Base.round(p::Point{N,<:Integer}, r::RoundingMode = RoundNearest) where {N} = p
-Base.round(::Type{Point}, p::Point{N,T}, r::RoundingMode = RoundNearest) where {N,T} =
+Base.round(p::AbstractPoint{N,T}, r::RoundingMode = RoundNearest) where {N,T} = round(Point{N,T}, p, r)
+Base.round(p::AbstractPoint{N,<:Integer}, r::RoundingMode = RoundNearest) where {N} = p
+Base.round(::Type{Point}, p::AbstractPoint{N,T}, r::RoundingMode = RoundNearest) where {N,T} =
     round(Point{N,T}, p, r)
-Base.round(::Type{Point{N}}, p::Point{N,T}, r::RoundingMode = RoundNearest) where {N,T} =
+Base.round(::Type{Point{N}}, p::AbstractPoint{N,T}, r::RoundingMode = RoundNearest) where {N,T} =
     round(Point{N,T}, p, r)
-Base.round(::Type{Point{N,T}}, p::Point{N}, r::RoundingMode = RoundNearest) where {N,T} =
+Base.round(::Type{Point{N,T}}, p::AbstractPoint{N}, r::RoundingMode = RoundNearest) where {N,T} =
     Point(round(NTuple{N,T}, p, r))
 
 # Rounding coordinates to a Cartesian index.
-Base.round(::Type{CartesianIndex}, p::Point{N}, r::RoundingMode = RoundNearest) where {N} =
+Base.round(::Type{CartesianIndex}, p::AbstractPoint{N}, r::RoundingMode = RoundNearest) where {N} =
     CartesianIndex(round(NTuple{N,Int}, p, r))
-Base.round(::Type{CartesianIndex{N}}, p::Point{N}, r::RoundingMode = RoundNearest) where {N} =
+Base.round(::Type{CartesianIndex{N}}, p::AbstractPoint{N}, r::RoundingMode = RoundNearest) where {N} =
     round(CartesianIndex, p, r)
 
 for (f, r) in ((:ceil, :RoundUp), (:floor, :RoundDown))
     @eval begin
-        Base.$f(p::Point) = round(p, $r)
+        Base.$f(p::AbstractPoint) = round(p, $r)
 
-        Base.$f(::Type{Point},      p::Point{N,T}) where {N,T} = round(Point{N,T}, p, $r)
-        Base.$f(::Type{Point{N}},   p::Point{N,T}) where {N,T} = round(Point{N,T}, p, $r)
-        Base.$f(::Type{Point{N,T}}, p::Point{N}  ) where {N,T} = round(Point{N,T}, p, $r)
+        Base.$f(::Type{Point},      p::AbstractPoint{N,T}) where {N,T} = round(Point{N,T}, p, $r)
+        Base.$f(::Type{Point{N}},   p::AbstractPoint{N,T}) where {N,T} = round(Point{N,T}, p, $r)
+        Base.$f(::Type{Point{N,T}}, p::AbstractPoint{N}  ) where {N,T} = round(Point{N,T}, p, $r)
 
-        Base.$f(::Type{Tuple},       p::Point{N,T}) where {N,T} = round(NTuple{N,T}, p, $r)
-        Base.$f(::Type{NTuple},      p::Point{N,T}) where {N,T} = round(NTuple{N,T}, p, $r)
-        Base.$f(::Type{NTuple{N}},   p::Point{N,T}) where {N,T} = round(NTuple{N,T}, p, $r)
-        Base.$f(::Type{NTuple{N,T}}, p::Point{N}  ) where {N,T} = round(NTuple{N,T}, p, $r)
+        Base.$f(::Type{Tuple},       p::AbstractPoint{N,T}) where {N,T} = round(NTuple{N,T}, p, $r)
+        Base.$f(::Type{NTuple},      p::AbstractPoint{N,T}) where {N,T} = round(NTuple{N,T}, p, $r)
+        Base.$f(::Type{NTuple{N}},   p::AbstractPoint{N,T}) where {N,T} = round(NTuple{N,T}, p, $r)
+        Base.$f(::Type{NTuple{N,T}}, p::AbstractPoint{N}  ) where {N,T} = round(NTuple{N,T}, p, $r)
 
-        Base.$f(::Type{CartesianIndex},    p::Point{N}) where {N} = round(CartesianIndex, p, $r)
-        Base.$f(::Type{CartesianIndex{N}}, p::Point{N}) where {N} = round(CartesianIndex, p, $r)
+        Base.$f(::Type{CartesianIndex},    p::AbstractPoint{N}) where {N} = round(CartesianIndex, p, $r)
+        Base.$f(::Type{CartesianIndex{N}}, p::AbstractPoint{N}) where {N} = round(CartesianIndex, p, $r)
     end
 end
 
 # To nearest Cartesian index.
 nearest(::Type{CartesianIndex{N}}, p::CartesianIndex{N}) where {N} = p
 nearest(::Type{CartesianIndex{N}}, p::NTuple{N}        ) where {N} = nearest(CartesianIndex, p)
-nearest(::Type{CartesianIndex{N}}, p::Point{N}         ) where {N} = nearest(CartesianIndex, p)
+nearest(::Type{CartesianIndex{N}}, p::AbstractPoint{N}         ) where {N} = nearest(CartesianIndex, p)
 nearest(::Type{CartesianIndex},    p::CartesianIndex   ) = p
-nearest(::Type{CartesianIndex},    p::Point            ) = nearest(CartesianIndex, Tuple(p))
+nearest(::Type{CartesianIndex},    p::AbstractPoint            ) = nearest(CartesianIndex, Tuple(p))
 nearest(::Type{CartesianIndex},    p::NTuple{N,Integer}) where {N} = CartesianIndex(p)
 nearest(::Type{CartesianIndex},    p::NTuple{N,Real}   ) where {N} =
     CartesianIndex(map(nearest(Int), p))
 
 # To nearest point.
-nearest(::Type{Point},      p::Point) = p
+nearest(::Type{Point},      p::AbstractPoint) = p
 nearest(::Type{Point},      p::Union{CartesianIndex,NTuple}) = Point(p)
-nearest(::Type{Point{N}},   p::Point{N}) where {N} = p
+nearest(::Type{Point{N}},   p::AbstractPoint{N}) where {N} = p
 nearest(::Type{Point{N}},   p::Union{CartesianIndex{N},NTuple{N}}) where {N} = Point(p)
-nearest(::Type{Point{N,T}}, p::Point{N,T}       ) where {N,T} = p
-nearest(::Type{Point{N,T}}, p::Point{N}         ) where {N,T} = Point{N,T}(map(nearest(T), Tuple(p)))
+nearest(::Type{Point{N,T}}, p::AbstractPoint{N,T}       ) where {N,T} = p
+nearest(::Type{Point{N,T}}, p::AbstractPoint{N}         ) where {N,T} = Point{N,T}(map(nearest(T), Tuple(p)))
 nearest(::Type{Point{N,T}}, p::NTuple{N,T}      ) where {N,T} = Point{N,T}(p)
 nearest(::Type{Point{N,T}}, p::NTuple{N}        ) where {N,T} = Point{N,T}(map(nearest(T), p))
 nearest(::Type{Point{N,T}}, p::CartesianIndex{N}) where {N,T} = Point{N,T}(p)
 
 # To nearest N-tuple.
-nearest(::Type{Tuple},         p::Point            ) = Tuple(p)
+nearest(::Type{Tuple},         p::AbstractPoint            ) = Tuple(p)
 nearest(::Type{Tuple},         i::CartesianIndex   ) = Tuple(i)
 nearest(::Type{Tuple},         t::Tuple            ) = t
 
-nearest(::Type{NTuple},        p::Point            ) = Tuple(p)
+nearest(::Type{NTuple},        p::AbstractPoint            ) = Tuple(p)
 nearest(::Type{NTuple},        i::CartesianIndex   ) = Tuple(i)
 nearest(::Type{NTuple},        t::NTuple           ) = t
 
-nearest(::Type{NTuple{N}},     p::Point{N}         ) where {N} = Tuple(p)
+nearest(::Type{NTuple{N}},     p::AbstractPoint{N}         ) where {N} = Tuple(p)
 nearest(::Type{NTuple{N}},     i::CartesianIndex{N}) where {N} = Tuple(i)
 nearest(::Type{NTuple{N}},     t::NTuple{N}        ) where {N} = t
 
-nearest(::Type{NTuple{N,T}},   p::Point{N,T}       ) where {N,T} = Tuple(p)
-nearest(::Type{NTuple{N,T}},   p::Point{N}         ) where {N,T} = nearest(NTuple{N,T}, Tuple(p))
+nearest(::Type{NTuple{N,T}},   p::AbstractPoint{N,T}       ) where {N,T} = Tuple(p)
+nearest(::Type{NTuple{N,T}},   p::AbstractPoint{N}         ) where {N,T} = nearest(NTuple{N,T}, Tuple(p))
 nearest(::Type{NTuple{N,Int}}, i::CartesianIndex{N}) where {N}   = Tuple(i)
 nearest(::Type{NTuple{N,T}},   i::CartesianIndex{N}) where {N,T} = nearest(NTuple{N,T}, Tuple(i))
 nearest(::Type{NTuple{N,T}},   t::NTuple{N,T}      ) where {N,T} = t
