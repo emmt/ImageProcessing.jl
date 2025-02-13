@@ -30,7 +30,8 @@ soft_thresholder(val, lvl) = nonnegative_part(val - lvl)
 """
     nonnegative_part(x)
 
-yields `x` if `x > zero(x)` holds and `zero(x)` otherwise.
+yields `x` if `x > zero(x)` holds and `zero(x)` otherwise. This rule implies that
+`zero(x)` is returned if `x` is a *NaN*.
 
 See also [`soft_thresholder`](@ref), [`ImageProcessing.fast_max`](@ref).
 
@@ -42,8 +43,8 @@ nonnegative_part(x) = fast_max(x, zero(x))
 
 yields `a` if `a > b` holds and `b` otherwise. Arguments must have the same type.
 
-This function is intended for fast computations (e.g. vectorized loops). If one of `a` or
-`b` is a NaN, `b` is returned.
+This function is intended for fast computations (e.g., vectorized loops). If one of `a` or
+`b` is a *NaN*, `b` is returned.
 
 See also [`ImageProcessing.fast_min`](@ref).
 
@@ -56,8 +57,8 @@ fast_max(a::T, b::T) where {T} = a > b ? a : b
 
 yields `a` if `a < b` holds and `b` otherwise. Arguments must have the same type.
 
-This function is intended for fast computations (e.g. vectorized loops). If one of `a` or
-`b` is a NaN, `b` is returned.
+This function is intended for fast computations (e.g., vectorized loops). If one of `a` or
+`b` is a *NaN*, `b` is returned.
 
 See also [`ImageProcessing.fast_max`](@ref).
 
