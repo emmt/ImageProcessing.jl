@@ -2,12 +2,6 @@
 #       bounding-boxes. Indeed, in may cases, the operations are similar and having the
 #       code side-by-side helps to ensure consistency.
 
-# Dimensionality.
-Base.ndims( ::Type{<:Point{N,T}}) where {N,T} = N
-Base.ndims( ::Type{<:Interval{<:Number}}) = 1
-Base.ndims( ::Type{<:Interval{<:Point{N}}}) where {N} = N
-Base.ndims( ::Type{<:BoundingBox{N,T}}) where {N,T} = N
-
 # Element type.
 Base.eltype(::Type{<:Interval{T}}) where {T} = T
 Base.eltype(::Type{<:BoundingBox{N,T}}) where {N,T} = Point{N,T}

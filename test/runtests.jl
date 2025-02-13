@@ -259,7 +259,6 @@ build(::Type{CartesianIndices}, start::CartesianIndex{N}, stop::CartesianIndex{N
         @test B.start == B.stop == Point{0,Int16}()
         @test B.intervals == ()
         @test !isempty(B)
-        @test ndims(B) == 0
         @test eltype(B) == Point{0,Int16}
         # 1-dimensional box.
         for rngs in ((0x2:0x3,), (Base.OneTo(7), Int16(-1):Int16(4),))
@@ -269,12 +268,7 @@ build(::Type{CartesianIndices}, start::CartesianIndex{N}, stop::CartesianIndex{N
             stop = Point(map(last, rngs))
             B = @inferred BoundingBox(rngs)
             @test eltype(B) === Point{N,T}
-            @test ndims(B) === N
-            @test ndims(B) === ndims(typeof(B))
-            @test ndims(B) === ndims(B.start)
-            @test ndims(B) === ndims(B.stop)
-            @test ndims(B) === length(B.intervals)
-            @test isempty(B) == !(start <= stop)
+            @test isempty(B) == !mapreduce(<=, &, start, stop)
             @test B.start == start
             @test B.stop == stop
             @test B.intervals === map(Interval, start.coords, stop.coords)
