@@ -12,11 +12,13 @@ export
     center_of_gravity,
     endpoints,
     hard_thresholder,
-    nearest,
-    new_array,
     nonnegative_part,
     soft_thresholder,
     zerofill!,
+
+    # re-exports from TypeUtils
+    nearest,
+    new_array,
 
     # re-exports from InterpolationKernels
     infimum,
@@ -41,6 +43,7 @@ using TypeUtils
 using EasyRanges: ranges
 using Base: @propagate_inbounds, Fix1, Fix2
 import InterpolationKernels: infimum, supremum
+import TypeUtils: nearest, new_array
 
 include("macros.jl")
 include("compat.jl")
