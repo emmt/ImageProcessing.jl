@@ -711,10 +711,10 @@ for (f, r) in ((:ceil, :RoundUp), (:floor, :RoundDown))
     end
 end
 
-# To nearest Cartesian index.
+# To nearest Cartesian index. FIXME some of these should be in `TypeUtils`
 nearest(::Type{CartesianIndex{N}}, p::CartesianIndex{N}) where {N} = p
 nearest(::Type{CartesianIndex{N}}, p::NTuple{N}        ) where {N} = nearest(CartesianIndex, p)
-nearest(::Type{CartesianIndex{N}}, p::AbstractPoint{N}         ) where {N} = nearest(CartesianIndex, p)
+nearest(::Type{CartesianIndex{N}}, p::AbstractPoint{N} ) where {N} = nearest(CartesianIndex, p)
 nearest(::Type{CartesianIndex},    p::CartesianIndex   ) = p
 nearest(::Type{CartesianIndex},    p::AbstractPoint            ) = nearest(CartesianIndex, Tuple(p))
 nearest(::Type{CartesianIndex},    p::NTuple{N,Integer}) where {N} = CartesianIndex(p)
@@ -733,21 +733,21 @@ nearest(::Type{Point{N,T}}, p::NTuple{N}        ) where {N,T} = Point{N,T}(map(n
 nearest(::Type{Point{N,T}}, p::CartesianIndex{N}) where {N,T} = Point{N,T}(p)
 
 # To nearest N-tuple.
-nearest(::Type{Tuple},         p::AbstractPoint            ) = Tuple(p)
+nearest(::Type{Tuple},         p::AbstractPoint    ) = Tuple(p)
 nearest(::Type{Tuple},         i::CartesianIndex   ) = Tuple(i)
 nearest(::Type{Tuple},         t::Tuple            ) = t
 
-nearest(::Type{NTuple},        p::AbstractPoint            ) = Tuple(p)
+nearest(::Type{NTuple},        p::AbstractPoint    ) = Tuple(p)
 nearest(::Type{NTuple},        i::CartesianIndex   ) = Tuple(i)
 nearest(::Type{NTuple},        t::NTuple           ) = t
 
-nearest(::Type{NTuple{N}},     p::AbstractPoint{N}         ) where {N} = Tuple(p)
+nearest(::Type{NTuple{N}},     p::AbstractPoint{N} ) where {N} = Tuple(p)
 nearest(::Type{NTuple{N}},     i::CartesianIndex{N}) where {N} = Tuple(i)
 nearest(::Type{NTuple{N}},     t::NTuple{N}        ) where {N} = t
 
-nearest(::Type{NTuple{N,T}},   p::AbstractPoint{N,T}       ) where {N,T} = Tuple(p)
-nearest(::Type{NTuple{N,T}},   p::AbstractPoint{N}         ) where {N,T} = nearest(NTuple{N,T}, Tuple(p))
-nearest(::Type{NTuple{N,Int}}, i::CartesianIndex{N}) where {N}   = Tuple(i)
-nearest(::Type{NTuple{N,T}},   i::CartesianIndex{N}) where {N,T} = nearest(NTuple{N,T}, Tuple(i))
-nearest(::Type{NTuple{N,T}},   t::NTuple{N,T}      ) where {N,T} = t
-nearest(::Type{NTuple{N,T}},   t::NTuple{N}        ) where {N,T} = map(nearest(T), t)
+nearest(::Type{NTuple{N,T}},   p::AbstractPoint{N,T}) where {N,T} = Tuple(p)
+nearest(::Type{NTuple{N,T}},   p::AbstractPoint{N}  ) where {N,T} = nearest(NTuple{N,T}, Tuple(p))
+nearest(::Type{NTuple{N,Int}}, i::CartesianIndex{N} ) where {N}   = Tuple(i)
+nearest(::Type{NTuple{N,T}},   i::CartesianIndex{N} ) where {N,T} = nearest(NTuple{N,T}, Tuple(i))
+nearest(::Type{NTuple{N,T}},   t::NTuple{N,T}       ) where {N,T} = t
+nearest(::Type{NTuple{N,T}},   t::NTuple{N}         ) where {N,T} = map(nearest(T), t)
