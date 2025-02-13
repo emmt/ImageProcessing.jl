@@ -2,7 +2,7 @@ using ImageProcessing
 using TypeUtils
 using Test
 
-using ImageProcessing: front, tail
+using ImageProcessing: front, tail, mapreduce
 
 const Returns = ImageProcessing.Returns
 
