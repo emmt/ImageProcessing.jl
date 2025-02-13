@@ -32,6 +32,9 @@ export
     # re-exports from Statistics
     mean
 
+using Backport
+@backport
+
 using EasyRanges
 using InterpolationKernels
 using LinearAlgebra
@@ -45,8 +48,6 @@ using Base: @propagate_inbounds, Fix1, Fix2
 import InterpolationKernels: infimum, supremum
 import TypeUtils: nearest, new_array
 
-include("macros.jl")
-include("compat.jl")
 include("types.jl")
 include("utils.jl")
 include("intervals.jl")

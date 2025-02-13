@@ -4,6 +4,7 @@ authors = ["Éric Thiébaut <eric.thiebaut@univ-lyon1.fr> and contributors"]
 version = "0.2.0"
 
 [deps]
+Backport = "2758ec0b-f557-436b-b200-4cc84a62d883"
 EasyRanges = "bd0ea217-0861-4661-bed1-3e8ea598dd25"
 InterpolationKernels = "16730964-a2ec-11e9-36fa-47a4f82bfac6"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
@@ -13,6 +14,7 @@ StructuredArrays = "2e8cd123-6858-488d-b42d-068777248635"
 TypeUtils = "c3b1956e-8857-4d84-9b79-890df85b1e67"
 
 [compat]
+Backport = "0.1.2"
 EasyRanges = "0.1.3"
 InterpolationKernels = "0.2.6"
 OffsetArrays = "1.14.1"
