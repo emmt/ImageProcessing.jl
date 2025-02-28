@@ -17,6 +17,8 @@ Non-breaking changes:
   values of type `T` and hyper-rectangular `N`-dimensional continuous regions of
   `N`-dimensional points of coordinate type `T` and with axes aligned with the Cartesian
   axes.
+- `f = hard_thresholder(lvl)` or `f = soft_thresholder(lvl)` build a callable object `f`
+  such that `f(x)` yields `hard_thresholder(x,lvl)` or `soft_thresholder(x,lvl)`.
 
 Breaking changes:
 - `IndexBox` has been removed. Use `BoundingBox` instead but the latter is continuous and

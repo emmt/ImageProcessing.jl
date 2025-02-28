@@ -11,6 +11,10 @@ zerofill!(A::AbstractArray) = fill!(A, zero(eltype(A)))
 
 yields `val` if `val > lvl` holds and `zero(val)` otherwise.
 
+    f = hard_thresholder(lvl)
+
+builds a callable object `f` such `f(x)` yields `hard_thresholder(x, lvl)`.
+
 See also [`soft_thresholder`](@ref).
 
 """
@@ -22,10 +26,18 @@ hard_thresholder(val::T, lvl::T) where {T} =
 
 yields the nonnegative part of `val - lvl`.
 
+    f = soft_thresholder(lvl)
+
+builds a callable object `f` such `f(x)` yields `soft_thresholder(x, lvl)`.
+
 See also [`nonnegative_part`](@ref), [`hard_thresholder`](@ref).
 
 """
 soft_thresholder(val, lvl) = nonnegative_part(val - lvl)
+
+for f in (:hard_thresholder, :soft_thresholder)
+    @eval $f(lvl) = Base.F1x2($f, lvl)
+end
 
 """
     nonnegative_part(x)
