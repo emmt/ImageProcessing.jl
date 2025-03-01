@@ -49,6 +49,7 @@ See also [`soft_thresholder`](@ref), [`ImageProcessing.fast_max`](@ref).
 
 """
 nonnegative_part(x) = fast_max(x, zero(x))
+nonnegative_part(x::Unsigned) = x
 
 """
     ImageProcessing.fast_max(a, b)
