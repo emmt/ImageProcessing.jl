@@ -1,74 +1,80 @@
 """
-    center_of_gravity(A; kwds...)
+    center_of_gravity([f,] A)
+    center_of_gravity([f,] A, B)
 
-yields the center of gravity of the values in array `A`. The result is a `N`-dimensional
-point with `N = ndims(A)` and computed by the formula:
+yield the center of gravity of the values in `N`-dimensional array `A`. The result is a
+`N`-dimensional point computed by the formula:
 
-    (sum_{i ∈ region} mass(i)*Point(i))/(sum_{i ∈ region} mass(i))
+    (Σᵢ mass(i)*Point(i))/(Σᵢ mass(i))
 
-with `i ∈ region` the indices in the region of interest, `Point(i)` the `N`-dimensional
-position at `i`, and:
+with `Σᵢ` the sum over the indices `i` of `A` (and `B` if specified), `Point(i)` the
+`N`-dimensional position at `i`, and `mass(i)` the *mass* given by:
 
-    mass(i) = thresholder(weights[i]*A[i], threshold)
+```julia
+mass(i) = f(A[i])           # if `B` is not specified
+mass(i) = f(A[i], B[i])     # if `B` is specified
+```
 
-Keywords:
+The value returned by the *mass function* `f` should be non-negative. If `f` is not
+specified, the default *mass function* is similar to the following definition:
 
-- `weights` is an array of element-wise nonnegative weights. By default, unit weights are
-  assumed (i.e., as if `weights` is an array of ones).
+```julia
+f(x, w=one(x)) = nonnegative_part(w*x)
+```
 
-- `region` is a `N`-tuple of index ranges to restrict the computation of the center of
-  gravity to a rectangular sub-region of `A` (and of `weights` if specified).
+With the default *mass function*, `A` typically represents measured intensities while `B`
+represents weights.
 
-- `threshold` is a threshold level, more specifically, the 2nd argument of the thresholder
-  function. By default, `threshold = 0`. The threshold is converted to a suitable type.
+To restrict the computations to an hyper-rectangular sub-region, use a view or a boxed
+array of `A` (and `B`).
 
-- `thresholder` is a callable object to compute the *mass* of node at index `i` as
-  `thresholder(weights[i]*A[i], threshold)` and which should yields a nonnegative result.
-  By default, a hard-thresholder is used (see [`hard_thresholder`](@ref)). For efficiency,
-  a user-defined thresholder should avoid branching to favor vectorization of
-  computations.
+For efficiency, a user-defined *mass function* should avoid branching to favor
+vectorization of computations. If you want to compute the center of gravity for, possibly
+weighted, values above a level `lvl`, the *mass function* `f` may be defined by:
+
+```julia
+f(x) = soft_thresholder(x, lvl)
+f(x, w) = soft_thresholder(w*x, lvl)
+```
 
 """
-function center_of_gravity(A::AbstractArray{<:Any,N};
-                           weights::AbstractArray{<:Any,N} = default_weights(A),
-                           region::Union{NTuple{N,AbstractRange{<:Integer}},Unspecified} = unspecified,
-                           threshold::Number = zero(eltype(weights))*zero(eltype(A)),
-                           thresholder = hard_thresholder) where {N}
-    # Define and check the region for computing the center of gravity.
-    if region === unspecified
-        region = axes(A)
-    else
-        is_subregion_of(region, A) || error("sub-region is not within array of values")
-    end
-    is_subregion_of(region, weights) || error("sub-region is not within array of weights")
+center_of_gravity(A::AbstractArray) = center_of_gravity(default_mass, A)
+center_of_gravity(A::AbstractArray{<:Any,N}, B::AbstractArray{<:Any,N}) where {N} =
+    center_of_gravity(default_mass, A, B)
 
-    # Accumulate the numerator and the denominator of the center of gravity. There are 2
-    # cases to consider depending on whether all weights are equal to one. The variables
-    # to sum the numerator and the denominator must be initialized as zeros of suitable
-    # types. Using a thresholder function avoids branching and thus favors vectorization.
-    if quick_all_ones(weights)
-        zero_mass = zero(eltype(weights))*zero(eltype(A))
-        num = zero_mass*Point(zero(CartesianIndex{N}))
-        den = zero_mass
-        threshold = oftype(zero_mass, threshold)
-        @inbounds @simd for i in CartesianIndices(region)
-            mass = thresholder(A[i], threshold)
-            num += mass*Point(i)
-            den += mass
-        end
-    else
-        zero_mass = zero(eltype(A))
-        num = zero_mass*Point(zero(CartesianIndex{N}))
-        den = zero_mass
-        threshold = oftype(zero_mass, threshold)
-        @inbounds @simd for i in CartesianIndices(region)
-            mass = thresholder(weights[i]*A[i], threshold)
-            num += mass*Point(i)
-            den += mass
-        end
+function center_of_gravity(f, A::AbstractArray{<:Any,N}) where {N}
+    zero_mass = zero(f(zero(eltype(A))))
+    num = zero_mass*Point(zero(CartesianIndex{N}))
+    den = zero_mass
+    @inbounds @simd for i in CartesianIndices(A)
+        mass = f(A[i])
+        num += mass*Point(i)
+        den += mass
     end
     return num/den
 end
+
+function center_of_gravity(f, A::AbstractArray{<:Any,N},
+                           B::AbstractArray{<:Any,N}) where {N}
+    inds = axes(A)
+    axes(B) == inds || throw(DimensionMismatch("arrays must have the same axes"))
+    zero_mass = zero(f(zero(eltype(A)), zero(eltype(B))))
+    num = zero_mass*Point(zero(CartesianIndex{N}))
+    den = zero_mass
+    @inbounds @simd for i in CartesianIndices(inds)
+        mass = f(A[i], B[i])
+        num += mass*Point(i)
+        den += mass
+    end
+    return num/den
+end
+
+# A Boolean weight is considered as a strong zero (in the sense that `false*NaN -> 0`).
+default_mass(x) = nonnegative_part(x)
+default_mass(x, y) = default_mass(x*y)
+default_mass(x, y::Bool) = ifelse(y, default_mass(x), zero(x))
+default_mass(x::Bool, y) = default_mass(y, x)
+default_mass(x::Bool, y::Bool) = x & y
 
 """
     ImageProcessing.default_origin(dim)
