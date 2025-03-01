@@ -122,6 +122,7 @@ build(::Type{CartesianIndices}, start::CartesianIndex{N}, stop::CartesianIndex{N
             @test Point{3}(I) === Point(Tuple(I))
             @test Point{3,Float32}(I) === Point(map(Float32, Tuple(I)))
             @test CartesianIndex(A) === CartesianIndex(A.coords)
+            @test_throws Exception CartesianIndex(Point(1.0, 2.0))
         end
         @testset "Comparions for points" begin
             # `isless` shall compare in reverse lexicographic order.

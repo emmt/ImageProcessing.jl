@@ -7,8 +7,8 @@ build a `N`-dimensional point of coordinates `coords...` stored as values of typ
 Unspecified parameters `N` and/or `T` are inferred from `coords...`.
 
 Coordinates may also be given by a `N`-tuple or by a Cartesian index. Conversely, a point
-`A` can be converted into a `N`-tuple or into a Cartesian index by calling the
-corresponding constructor: `Tuple(A)` or `CartesianIndex(A)`.
+`A` can be converted into a `N`-tuple by `Tuple(A)`. Furthermore, a point `A` with integer
+coordinates can be converted into a Cartesian index by `CartesianIndex(A)`.
 
 A point `A` may be indexed to retrieve its individual coordinates: the syntax `A[i]` is
 equivalent to `A.coords[i]` with `i` an integer index or an index range. For example,
