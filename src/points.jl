@@ -102,10 +102,14 @@ Base.values(p::AbstractPoint) = getfield(p, :coords)
 Base.Tuple(p::Point) = values(p)
 
 #-----------------------------------------------------------------------------------------
-# Implement abstract vector API for abstract points.
-Base.length(p::AbstractPoint{N,T}) where {N,T} = N
-Base.size(p::AbstractPoint) = (length(p),)
-Base.axes(p::AbstractPoint) = (keys(p),)
+# Even though a point is not an abstract vector of coordinates, implement a subset of the
+# abstract vector API for abstract points.
+Base.length(::T) where {T<:AbstractPoint} = length(T)
+Base.length(::Type{<:AbstractPoint{N,T}}) where {N,T} = N
+Base.IteratorSize(::Type{<:AbstractPoint}) = Base.HasLength()
+Base.eltype(::T) where {T<:AbstractPoint} = eltype(T)
+Base.eltype(::Type{<:AbstractPoint{N,T}}) where {N,T} = T
+Base.IteratorEltype(::Type{<:AbstractPoint}) = Base.HasEltype()
 Base.IndexStyle(::Type{<:AbstractPoint}) = IndexLinear()
 Base.firstindex(p::AbstractPoint) = 1
 Base.lastindex(p::AbstractPoint) = length(p)
@@ -122,8 +126,6 @@ Base.convert(::Type{T}, p::AbstractPoint) where {T<:Tuple} = convert(T, Tuple(p)
 # Implement part of the API of `N`-tuples and iterators. NOTE: For `getindex`, bound
 # checking cannot be avoided for tuples. For `Point`, Base methods `eltype` and `length`
 # follows the same semantics as `CartesianIndex`.
-Base.IteratorSize(::Type{<:AbstractPoint}) = Base.HasLength()
-Base.IteratorEltype(::Type{<:AbstractPoint}) = Base.HasEltype()
 @propagate_inbounds Base.iterate(iter::AbstractPoint, i::Int = firstindex(iter)) =
     # NOTE Bounds are always checked for tuples, so only check upper bound.
     i ≤ lastindex(iter) ? (iter[i], i + 1) : nothing

@@ -37,12 +37,12 @@ See also [`Interval`](@ref), [`PointLike`](@ref), and [`BoundingBoxLike`](@ref).
 const IntervalLike = Union{Interval,AbstractRange}
 
 """
-    AbstractPoint{N,T} <: AbstractVector{N}
+    AbstractPoint{N,T}
 
 is the abstract type of `N`-dimensional *points* having coordinates of type `T`. A point
-`p` is also an (generally immutable) abstract vector whose `i`-th coordinate is given by
-`p[i]`. For a point `p`, the number of coordinates given by `length(p)` is a *trait*: it
-is inferable from the type.
+`p` is also iterable and indexable with `i`-th coordinate given by `p[i]`. For a point
+`p`, the number of coordinates given by `length(p)` is a *trait*: it is inferable from the
+type.
 
 For concrete point types, say `PointType`, apart from constructors given the coordinates,
 at least the method `Base.values(p::PointType)` must be specialized to yield an indexable
@@ -81,7 +81,7 @@ points.
 See also [`Point`](@ref), and [`PointLike`](@ref).
 
 """
-abstract type AbstractPoint{N,T} <: AbstractVector{T} end
+abstract type AbstractPoint{N,T} end
 
 """
     PointLike{N}
