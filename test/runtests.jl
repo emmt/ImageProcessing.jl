@@ -114,6 +114,13 @@ build(::Type{CartesianIndices}, start::CartesianIndex{N}, stop::CartesianIndex{N
             @test A/one(A) == A
             # `oneunit` yields Point(1,1,...).
             @test Tuple(oneunit(A)) === ntuple(Returns(oneunit(eltype(A))), length(A))
+            # `map` and broadcasted operations on points.
+            @test float(Point(1,2)) === float.(Point(1,2)) === Point(float(1), float(2))
+            @test Point(1,2) + Point(-4,7) === Point(1,2) .+ Point(-4,7) === Point(-3,9)
+            @test Point(1,2) - Point(-4,7) === Point(1,2) .- Point(-4,7) === Point(5,-5)
+            @test Point(1,2)*3 === 3*Point(1,2) === 3 .* Point(1,2) === Point(1,2) .* 3 === Point(3,6)
+            @test Point(6,9)/3 === 3\Point(6,9) === Point(6,9) ./ 3 === 3 .\ Point(6,9) === Point(2.0,3.0)
+            @test clamp.(Point(-3,1,7), Point(0,1,2), Point(4,3,2)) === Point(0,1,2)
         end
         @testset "Points and Cartesian indices" begin
             I = CartesianIndex(-1,2,3)
@@ -124,7 +131,7 @@ build(::Type{CartesianIndices}, start::CartesianIndex{N}, stop::CartesianIndex{N
             @test CartesianIndex(A) === CartesianIndex(A.coords)
             @test_throws Exception CartesianIndex(Point(1.0, 2.0))
         end
-        @testset "Comparions for points" begin
+        @testset "Comparisons for points" begin
             # `isless` shall compare in reverse lexicographic order.
             @test (Point((1,2)) < Point((1,2))) == false
             @test (Point((1,2)) < Point((2,1))) == false

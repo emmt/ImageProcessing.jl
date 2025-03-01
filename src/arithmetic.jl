@@ -36,16 +36,6 @@ BoundingBox{N,T}() where {N,T} = BoundingBox(endpoints_of_empty_set(Point{N,T}).
 Base.clamp(x::T, I::Interval{T}) where {T} = clamp(x, I.start, I.stop)
 Base.clamp(x, I::Interval) = clamp(promote(x, I.start, I.stop)...)
 
-# Convert to floating-point.
-Base.float(p::AbstractPoint{N,<:AbstractFloat}) where {N} = p
-Base.float(p::AbstractPoint) = Point(map(float, Tuple(p)))
-
-Base.float(i::Interval{<:AbstractFloat}) = i
-Base.float(i::Interval) = Interval(float(first(i)), float(last(i)))
-
-Base.float(b::BoundingBox{N,<:AbstractFloat}) where {N} = b
-Base.float(b::BoundingBox) = BoundingBox(float(first(b)), float(last(b)))
-
 # Constructors from an instance of the same class and `convert` are similar for points and
 # bounding-boxes.
 for type in (:Point, :BoundingBox)
@@ -83,24 +73,6 @@ Base.promote_rule(::Type{<:AbstractPoint{N,T1}}, ::Type{<:AbstractPoint{N,T2}}) 
 Base.promote_rule(::Type{CartesianIndex{N}}, ::Type{<:AbstractPoint{N,T}}) where {N,T} =
     Point{N, promote_type(Int, T)}
 
-# Rules for converting element type.
-TypeUtils.convert_eltype(::Type{T}, ::Type{<:BoundingBox{N}}) where {N,T} = BoundingBox{N,T}
-TypeUtils.convert_eltype(::Type{T}, ::Type{<:Interval}) where {T} = Interval{T}
-TypeUtils.convert_eltype(::Type{T}, ::Type{<:Point{N}}) where {N,T} = Point{N,T}
-TypeUtils.convert_eltype(::Type{T}, p::AbstractPoint) where {T} =
-    # We must override the rule for abstract arrays in `TypeUtils`.
-    as(convert_eltype(T, typeof(p)), p)
-
-# Unary plus.
-Base.:(+)(p::AbstractPoint) = p
-Base.:(+)(i::Interval) = i
-Base.:(+)(b::BoundingBox) = b
-
-# Unary minus.
-Base.:(-)(p::AbstractPoint) = Point(map(-, Tuple(p)))
-Base.:(-)(i::Interval) = Interval(-last(i), -first(i))
-Base.:(-)(b::BoundingBox) = BoundingBox(-last(b), -first(b))
-
 # Consistency
 # -----------
 #
@@ -123,58 +95,7 @@ Base.oneunit(::Type{<:AbstractPoint{N,T}}) where {N,T} = Point{N,T}(ntuple(Retur
 Base.oneunit(::Type{Interval{T}}) where {T} = Interval{T}(zero(T), oneunit(T))
 Base.oneunit(::Type{BoundingBox{N,T}}) where {N,T} = BoundingBox{N,T}(zero(Point{N,T}), oneunit(Point{N,T}))
 
-# Some methods are "traits" that only depend on the type.
-for type in (:AbstractPoint, :Interval, :BoundingBox)
-    for f in (:zero, :one, :oneunit, :eltype)
-        f === :eltype && type === :AbstractPoint && continue
-        @eval Base.$f(x::$type) = $f(typeof(x))
-    end
-end
-
-# Multiplication of points, intervals and bounding-boxes by a scalar.
-#
-# NOTE: Multiplication and division of intervals or bounding-boxes by a scalar follow the
-#       same rules.
-Base.:(*)(p::AbstractPoint, alpha::Number) = alpha*p
-Base.:(*)(alpha::Number, p::AbstractPoint) = Point(map(Base.Fix1(*, alpha), Tuple(p)))
-
-Base.:(*)(i::Interval, alpha::Real) = alpha*i
-function Base.:(*)(alpha::Real, i::Interval)
-    x = alpha*first(i)
-    isempty(i) && return empty(Interval{typeof(x)})
-    y = alpha*last(i)
-    return Interval(minmax(x, y)...)
-end
-
-Base.:(*)(b::BoundingBox, alpha::Real) = alpha*b
-function Base.:(*)(alpha::Real, b::BoundingBox{N}) where {N}
-    x = alpha*first(b)
-    isempty(b) && return empty(BoundingBox{N,eltype(x)})
-    y = alpha*last(b)
-    return BoundingBox(minmax(x, y)...)
-end
-
-# Division of points, intervals and bounding-boxes by a scalar.
-Base.:(\)(alpha::Number, p::AbstractPoint) = p/alpha
-Base.:(/)(p::AbstractPoint, alpha::Number) = Point(map(Base.Fix2(/, alpha), Tuple(p)))
-
-Base.:(\)(alpha::Real, i::Interval) = i/alpha
-function Base.:(/)(i::Interval, alpha::Real)
-    x = first(i)/alpha
-    isempty(i) && return empty(Interval{typeof(x)})
-    y = last(i)/alpha
-    return Interval(minmax(x, y)...)
-end
-
-Base.:(\)(alpha::Real, b::BoundingBox) = b/alpha
-function Base.:(/)(b::BoundingBox{N}, alpha::Real) where {N}
-    x = first(b)/alpha
-    isempty(b) && return empty(BoundingBox{N,eltype(x)})
-    y = last(b)/alpha
-    return BoundingBox(minmax(x, y)...)
-end
-
-# Binary operations between point-like objects.
+# Binary operations between point-like objects. FIXME Should convert operands to `Point` first.
 for (A, B) in ((:AbstractPoint, :AbstractPoint),
                (:AbstractPoint, :CartesianIndex),
                (:CartesianIndex, :AbstractPoint))
@@ -198,83 +119,271 @@ for (A, B) in ((:AbstractPoint, :AbstractPoint),
     end
 end
 
-# Addition and subtraction of intervals or bounding-boxes follow the same rules.
-Base.:(+)(A::Interval, B::Interval) = +(promote(A, B)...)
-Base.:(-)(A::Interval, B::Interval) = -(promote(A, B)...)
-Base.:(+)(A::BoundingBox{N}, B::BoundingBox{N}) where {N} = +(promote(A, B)...)
-Base.:(-)(A::BoundingBox{N}, B::BoundingBox{N}) where {N} = -(promote(A, B)...)
-for type in (:Interval, :BoundingBox)
-    @eval begin
-        Base.:(+)(A::T, B::T) where {T<:$type} =
-            isempty(A) ? B :
-            isempty(B) ? A : $type(first(A) + first(B), last(A) + last(B))
-        Base.:(-)(A::T, B::T) where {T<:$type} =
-            isempty(A) ? B :
-            isempty(B) ? A : $type(first(A) - last(B), last(A) - first(B))
-    end
-end
-
 # Check equality of intervals and bounding-boxes. Note that `isequal` falls back to `==`.
 Base.:(==)(A::Interval, B::Interval) =
     (isempty(A) & isempty(B)) | ((first(A) == first(B)) & (last(A) == last(B)))
 Base.:(==)(A::BoundingBox{N}, B::BoundingBox{N}) where {N} =
     (isempty(A) && isempty(B)) || ((first(A) == first(B)) && (last(A) == last(B)))
 
-# Addition and subtraction of a value to an interval or a point to a bounding-box yields
-# the set resulting from the elementwise operation.
+#-----------------------------------------------------------------------------------------
+# Broadcasting, mapping, and element-wise operations.
+
+"""
+    ImageProcessing.elementwise(op, args...)
+
+applies operator (or function) `op` element-wise to arguments `args...`.
+
+    f = ImageProcessing.elementwise(op)
+
+builds a callable object `f` such that `f(args...)` yields the same result as
+`ImageProcessing.elementwise(op, args...)`.
+
+""" function elementwise end
+
+# Decorative structure to map element-wise operations.
+struct Elementwise{F}
+    op::F
+    global elementwise
+    elementwise(op::F) where {F} = new{F}(op)
+end
+@inline (f::Elementwise)(args...) = elementwise(f.op, args...)
+
+# Coordinate type conversion and mapping of functions for points.
+elementwise(f, p::Point) = map(f, p)
+elementwise(f, p::Point{N}, q::Point{N}) where {N} = map(f, p, q)
+elementwise(f, p::Point{N}, q::Point{N}...) where {N} = map(f, p, q...)
+Base.map(::Type{T}, p::Point{N,T}) where {N,T} = p
+Base.map(f, p::Point) = Point(map(f, Tuple(p)))
+Base.map(f, p::Point{N}, q::Point{N}) where {N} = Point(map(f, Tuple(p), Tuple(q)))
+Base.map(f, p::Point{N}, q::Point{N}...) where {N} = Point(map(f, Tuple(p), map(Tuple, q)...))
+Broadcast.broadcasted(f, p::Point) = elementwise(f, p)
+Broadcast.broadcasted(f, p::Point{N}, q::Point{N}) where {N} = elementwise(f, p, q)
+Broadcast.broadcasted(f, p::Point{N}, q::Point{N}...) where {N} = elementwise(f, p, q...)
+Base.float(p::AbstractPoint{N,<:AbstractFloat}) where {N} = p
+Base.float(p::Point) = elementwise(float, p)
+TypeUtils.convert_eltype(::Type{T}, ::Type{<:Point{N}}) where {N,T} = Point{N,T}
+TypeUtils.convert_eltype(::Type{T}, p::AbstractPoint) where {T} =
+    # We must override the rule for abstract arrays in `TypeUtils`.
+    as(convert_eltype(T, typeof(p)), p)
+
+# Element type conversion for intervals.
+elementwise(::Type{T}, i::Interval) where {T} = map(T, i)
+Base.map(::Type{T}, i::Interval{T}) where {T} = i
+Base.map(::Type{T}, i::Interval) where {T} = Interval{T}(i)
+Broadcast.broadcasted(::Type{T}, i::Interval) where {T} = elementwise(T, i)
+Base.float(i::Interval{<:AbstractFloat}) = i
+Base.float(i::Interval) = Interval(float(first(i)), float(last(i)))
+TypeUtils.convert_eltype(::Type{T}, ::Type{<:Interval}) where {T} = Interval{T}
+
+# Element type conversion for bounding-boxes.
+elementwise(::Type{T}, b::BoundingBox) where {T} = map(T, b)
+Base.map(::Type{T}, b::BoundingBox{N,T}) where {N,T} = b
+Base.map(::Type{T}, b::BoundingBox{N}) where {N,T} = BoundingBox{N,T}(b)
+Broadcast.broadcasted(::Type{T}, b::BoundingBox) where {T} = elementwise(T, b)
+Base.float(b::BoundingBox{N,<:AbstractFloat}) where {N} = b
+Base.float(b::BoundingBox) = BoundingBox(float(first(b)), float(last(b)))
+TypeUtils.convert_eltype(::Type{T}, ::Type{<:BoundingBox{N}}) where {N,T} = BoundingBox{N,T}
+
+# This is all what is needed to have intervals, points, and bounding-boxes considered as
+# "scalars" in broadcasted operations with arrays or tuples of intervals, points, and
+# bounding-boxes.
+Broadcast.broadcastable(x::Union{Interval,AbstractPoint,BoundingBox}) = Ref(x)
+
+# Element-wise and broadcasted binary operations with a scalar and a point is similar to
+# applying this operations to the coordinates of the pint.
+Broadcast.broadcasted(f, x::Number, p::AbstractPoint) = elementwise(f, x, p)
+Broadcast.broadcasted(f, p::AbstractPoint, x::Number) = elementwise(f, p, x)
+elementwise(f, x::Number, p::Point) = map(Fix1(f, x), p)
+elementwise(f, p::Point, x::Number) = map(Fix2(f, x), p)
+
+# Operations and methods that follow similar rules for points, intervals, and
+# bounding-boxes.
+for type in (:AbstractPoint, :Interval, :BoundingBox)
+    # Some methods are "traits" that only depend on the type.
+    for f in (:zero, :one, :oneunit, :eltype)
+        f === :eltype && type === :AbstractPoint && continue
+        @eval Base.$f(x::$type) = $f(typeof(x))
+    end
+    # Arithmetic operations.
+    @eval begin
+        # Unary plus and unary minus.
+        Base.:(+)(x::$type) = x
+        Base.:(-)(x::$type) = elementwise(-, x)
+        elementwise(::typeof(+), x::$type) = x
+
+        # Multiplication and division by a scalar.
+        Base.:(*)(x::$type, alpha::Number) = elementwise(*, x, alpha)
+        Base.:(*)(alpha::Number, x::$type) = elementwise(*, alpha, x)
+        Base.:(/)(x::$type, alpha::Number) = elementwise(/, x, alpha)
+        Base.:(\)(alpha::Number, x::$type) = elementwise(\, alpha, x)
+    end
+end
+for type in (:Interval, :BoundingBox)
+    @eval begin
+        # Multiplication by a scalar is commutative.
+        elementwise(::typeof(*), x::$type, alpha::Number) = elementwise(*, alpha, x)
+
+        # Rewrite left division by a scalar as right division by a scalar.
+        elementwise(::typeof(\), alpha::Number, x::$type) = elementwise(/, x, alpha)
+    end
+end
+
+function elementwise(::typeof(*), alpha::Number, i::Interval)
+    x = alpha*first(i)
+    isempty(i) && return empty(Interval{typeof(x)})
+    y = alpha*last(i)
+    return Interval(minmax(x, y)...)
+end
+
+function elementwise(::typeof(*), alpha::Number, b::BoundingBox{N}) where {N}
+    x = alpha*first(b)
+    isempty(b) && return empty(BoundingBox{N,eltype(x)})
+    y = alpha*last(b)
+    return BoundingBox(minmax(x, y)...)
+end
+
+function elementwise(::typeof(/), i::Interval, alpha::Number)
+    x = first(i)/alpha
+    isempty(i) && return empty(Interval{typeof(x)})
+    y = last(i)/alpha
+    return Interval(minmax(x, y)...)
+end
+
+function elementwise(::typeof(/), b::BoundingBox{N}, alpha::Number) where {N}
+    x = first(b)/alpha
+    isempty(b) && return empty(BoundingBox{N,eltype(x)})
+    y = last(b)/alpha
+    return BoundingBox(minmax(x, y)...)
+end
+
+# Addition and subtraction of intervals or bounding-boxes follow the same rules.
+for op in (:(+), :(-))
+    @eval begin
+        Base.$op(A::Interval, B::Interval) = elementwise($op, A, B)
+        Base.$op(A::BoundingBox{N}, B::BoundingBox{N}) where {N} = elementwise($op, A, B)
+        elementwise(::typeof($op), A::Interval, B::Interval) =
+            elementwise($op, promote(A, B)...)
+        elementwise(::typeof($op), A::BoundingBox{N}, B::BoundingBox{N}) where {N} =
+            elementwise($op, promote(A, B)...)
+    end
+end
+for type in (:Interval, :BoundingBox)
+    @eval begin
+        # Negation (unary minus) of sets.
+        elementwise(::typeof(-), x::$type) = $type(-last(x), -first(x))
+
+        # Element-wise addition of sets.
+        elementwise(::typeof(+), A::T, B::T) where {T<:$type} =
+            isempty(A) ? B :
+            isempty(B) ? A : $type(first(A) + first(B), last(A) + last(B))
+
+        # Element-wise subtraction of sets.
+        elementwise(::typeof(-), A::T, B::T) where {T<:$type} =
+            isempty(A) ? B :
+            isempty(B) ? A : $type(first(A) - last(B), last(A) - first(B))
+    end
+end
+
+# Addition and subtraction of a value to an interval yields the interval resulting from
+# the elementwise operation.
+for op in (:(+), :(-))
+    @eval begin
+        Broadcast.broadcasted(::typeof($op), i::Interval, x) = elementwise($op, i, x)
+        Broadcast.broadcasted(::typeof($op), x, i::Interval) = elementwise($op, x, i)
+        Base.$op(i::Interval, x) = elementwise($op, i, x)
+        Base.$op(x, i::Interval) = elementwise($op, x, i)
+    end
+end
+
+# Addition and subtraction of a point to a bounding-box or a Cartesian range yields the
+# set resulting from the elementwise operation.
+for (R, P) in ((:(CartesianIndices{N}), :(AbstractPoint{N,<:Integer})),
+               (:(BoundingBox{N}), :(PointLike{N}))), op in (:(+), :(-))
+    @eval begin
+        Broadcast.broadcasted(::typeof($op), r::$R, p::$P) where {N} = elementwise($op, r, p)
+        Broadcast.broadcasted(::typeof($op), p::$P, r::$R) where {N} = elementwise($op, p, r)
+        Base.$op(r::$R, p::$P) where {N} = elementwise(+, r, p)
+        Base.$op(p::$P, r::$R) where {N} = elementwise(+, p, r)
+    end
+end
+
+# Element-wise addition and subtraction of a value to a range, or an interval or of a
+# point to a bounding-box or a Cartesian range.
 #
 # NOTE: Emptiness must be checked otherwise adding a value to an empty interval could
 #       yield a non-empty result. For instance, `Interval(1,0) + Inf` would yield
 #       `Interval(Inf,Inf)` which is not considered as empty.
-Base.:(+)(x, i::Interval) = i + x
-function Base.:(+)(i::Interval, x)
-    start, x, stop = promote(first(i), x, last(i))
-    return isempty(i) ? Interval{typeof(x)}() : Interval(start + x, stop + x)
+#
+# NOTE: For ranges, element-wise addition and subtraction preserve the sign of the step.
+#
+elementwise(::typeof(+), x, i::Interval) = elementwise(+, i, x)
+function elementwise(::typeof(+), i::Interval, x)
+    off, start, stop = promote(x, first(i), last(i))
+    return isempty(i) ? Interval{typeof(off)}() : Interval(start + off, stop + off)
 end
-function Base.:(-)(i::Interval, x)
-    start, x, stop = promote(first(i), x, last(i))
-    return isempty(i) ? Interval{typeof(x)}() : Interval(start - x, stop - x)
+function elementwise(::typeof(-), i::Interval, x)
+    off, start, stop = promote(x, first(i), last(i))
+    return isempty(i) ? Interval{typeof(off)}() : Interval(start - off, stop - off)
 end
-function Base.:(-)(x, i::Interval)
-    start, x, stop = promote(first(i), x, last(i))
-    return isempty(i) ? Interval{typeof(x)}() : Interval(x - stop, x - start)
-end
-
-Base.:(+)(p::PointLike{N}, b::BoundingBox{N}) where {N} = b + p
-function Base.:(+)(b::BoundingBox{N}, p::PointLike{N}) where {N}
-    start, p, stop = promote(first(b), p, last(b))
-    return isempty(b) ? BoundingBox{N,eltype(p)}() : BoundingBox(start + p, stop + p)
-end
-function Base.:(-)(b::BoundingBox{N}, p::PointLike{N}) where {N}
-    start, p, stop = promote(first(b), p, last(b))
-    return isempty(b) ? BoundingBox{N,eltype(p)}() : BoundingBox(start - p, stop - p)
-end
-function Base.:(-)(p::PointLike{N}, b::BoundingBox{N}) where {N}
-    start, p, stop = promote(first(b), p, last(b))
-    return isempty(b) ? BoundingBox{N,eltype(p)}() : BoundingBox(p - stop, p - start)
+function elementwise(::typeof(-), x, i::Interval)
+    off, start, stop = promote(x, first(i), last(i))
+    return isempty(i) ? Interval{typeof(off)}() : Interval(off - stop, off - start)
 end
 
-# Shifting of Cartesian index ranges by adding/subtracting a point. The result is an
-# instance of `CartesinaIndices`.
-Base.:(+)(p::AbstractPoint{N,<:Integer}, R::CartesianIndices{N}) where {N} = R + p
-Base.:(+)(R::CartesianIndices{N}, p::AbstractPoint{N,<:Integer}) where {N} =
-    EasyRanges.plus(R, CartesianIndex(p))
-Base.:(-)(p::AbstractPoint{N,<:Integer}, R::CartesianIndices{N}) where {N} =
-    EasyRanges.minus(CartesianIndex(p), R)
-Base.:(-)(R::CartesianIndices{N}, p::AbstractPoint{N,<:Integer}) where {N} =
-    EasyRanges.minus(R, CartesianIndex(p))
+elementwise(::typeof(+), x::Number, r::AbstractRange) =
+    elementwise(r, +, x)
+elementwise(::typeof(+), r::AbstractUnitRange, x::Number) =
+    range(first(r) + x; length=length(r))
+elementwise(::typeof(+), r::AbstractRange, x::Number) =
+    range(first(r) + x; length=length(r), step=step(r))
+elementwise(::typeof(-), r::AbstractUnitRange, x::Number) =
+    range(first(r) - x; length=length(r))
+elementwise(::typeof(-), r::AbstractRange, x::Number) =
+    range(first(r) - x; length=length(r), step=step(r))
+elementwise(::typeof(-), x::Number, r::AbstractUnitRange) =
+    range(x - last(r); length=length(r))
+elementwise(::typeof(-), x::Number, r::AbstractRange) =
+    range(x - last(r); length=length(r), step=step(r))
+
+elementwise(::typeof(+), p::PointLike{N}, b::BoundingBox{N}) where {N} =
+    elementwise(+, b, p)
+function elementwise(::typeof(+), b::BoundingBox{N}, p::PointLike{N}) where {N}
+    off, start, stop = promote(p, first(b), last(b))
+    return isempty(b) ? BoundingBox{N,eltype(off)}() : BoundingBox(start + off, stop + off)
+end
+function elementwise(::typeof(-), b::BoundingBox{N}, p::PointLike{N}) where {N}
+    off, start, stop = promote(p, first(b), last(b))
+    return isempty(b) ? BoundingBox{N,eltype(off)}() : BoundingBox(start - off, stop - off)
+end
+function elementwise(::typeof(-), p::PointLike{N}, b::BoundingBox{N}) where {N}
+    off, start, stop = promote(p, first(b), last(b))
+    return isempty(b) ? BoundingBox{N,eltype(off)}() : BoundingBox(off - stop, off - start)
+end
+
+elementwise(::typeof(+), p::AbstractPoint{N,<:Integer}, r::CartesianIndices{N}) where {N} =
+    elementwise(+, r, p)
+elementwise(::typeof(+), r::CartesianIndices{N}, p::AbstractPoint{N,<:Integer}) where {N} =
+    CartesianIndices(map(elementwise(+), r.indices, Tuple(p)))
+elementwise(::typeof(-), r::CartesianIndices{N}, p::AbstractPoint{N,<:Integer}) where {N} =
+    CartesianIndices(map(elementwise(-), r.indices, Tuple(p)))
+elementwise(::typeof(-), p::AbstractPoint{N,<:Integer}, r::CartesianIndices{N}) where {N} =
+    CartesianIndices(map(elementwise(-), Tuple(p), r.indices))
+
+#-----------------------------------------------------------------------------------------
+# Some math functions.
 
 # `min()`, `max()`, and `minmax()` for points work as for Cartesian indices.
-@inline Base.min(a::AbstractPoint{N}, b::AbstractPoint{N}) where {N} =
-    Point(map(min, Tuple(a), Tuple(b)))
-@inline Base.max(a::AbstractPoint{N}, b::AbstractPoint{N}) where {N} =
-    Point(map(max, Tuple(a), Tuple(b)))
-@inline function Base.minmax(a::AbstractPoint{N}, b::AbstractPoint{N}) where {N}
+Base.min(a::AbstractPoint{N}, b::AbstractPoint{N}) where {N} = elementwise(min, a, b)
+Base.max(a::AbstractPoint{N}, b::AbstractPoint{N}) where {N} = elementwise(max, a, b)
+Base.minmax(a::AbstractPoint{N}, b::AbstractPoint{N}) where {N} = elementwise(minmax, a, b)
+# FIXME elementwise(::typeof(min), a::Point{N}, b::Point{N}) where {N} = map(min, a, b)
+# FIXME elementwise(::typeof(max), a::Point{N}, b::Point{N}) where {N} = map(max, a, b)
+@inline function elementwise(::typeof(minmax), a::Point{N}, b::Point{N}) where {N}
+    # This one must be specialized as it (logically) returns 2 points.
     t = map(minmax, Tuple(a), Tuple(b))
     return Point(map(first, t)), Point(map(last, t))
 end
 
-# Some math functions.
 # NOTE `Base.hypot(Tuple(x::Point)...)` is a bit faster than
 #      `LinearAlgebra.norm2(Tuple(x::Point))`.
 LinearAlgebra.norm(a::AbstractPoint) = hypot(a)
