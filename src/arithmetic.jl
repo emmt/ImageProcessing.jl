@@ -23,7 +23,7 @@ assert_nonempty(I::Interval) =
 assert_nonempty(B::BoundingBox) =
     isempty(B) ? throw(ArgumentError("box must be non-empty")) : nothing
 
-# Check for emptyness and build empty set of the given type.
+# Check for emptiness and build empty set of the given type.
 Base.isempty(I::Interval) = !(first(I) ≤ last(I))
 Base.empty(::Type{Interval{T}}) where {T} = Interval{T}()
 Interval{T}() where {T} = Interval(endpoints_of_empty_set(T)...)
@@ -105,7 +105,7 @@ Base.:(-)(b::BoundingBox) = BoundingBox(-last(b), -first(b))
 # -----------
 #
 # Addition and subtraction of points, intervals, or bounding-boxes must be consistent with
-# mutiplication and division by a scalar and with the neutral elements (`one(x)` and
+# multiplication and division by a scalar and with the neutral elements (`one(x)` and
 # `zero(x)`) for the multiplication and for the addition/subtraction.
 
 # `one(x)` yields a multiplicative identity for x.
@@ -223,7 +223,7 @@ Base.:(==)(A::BoundingBox{N}, B::BoundingBox{N}) where {N} =
 # Addition and subtraction of a value to an interval or a point to a bounding-box yields
 # the set resulting from the elementwise operation.
 #
-# NOTE: Emptyness must be checked otherwise adding a value to an empty interval could
+# NOTE: Emptiness must be checked otherwise adding a value to an empty interval could
 #       yield a non-empty result. For instance, `Interval(1,0) + Inf` would yield
 #       `Interval(Inf,Inf)` which is not considered as empty.
 Base.:(+)(x, i::Interval) = i + x
@@ -296,8 +296,8 @@ Base.in(p::AbstractPoint, S) = _any_is_equal(p, S)
 @inline _any_is_equal(p::AbstractPoint, S) = any(==(p), S)
 
 # A point cannot be part of a collection if it is a collection of points of different
-# dimensionality. This provides a shortcase in some common cases. It just have to be done
-# with a signatue a bit more specific than above.
+# dimensionality. This provides a shortcut in some common cases. It just have to be done
+# with a signature a bit more specific than above.
 
 # Inclusion of a point `p` in `A`, an array of points.
 Base.in(p::AbstractPoint{N}, A::AbstractArray{<:Point{M}}) where {N,M} = false
@@ -331,7 +331,7 @@ function Base.issubset(A::AbstractRange, B::Interval)
     return !(start ≤ stop) | ((first(B) ≤ start) & (stop ≤ last(B)))
 end
 
-# Continous interval must be empty or a singleton to be possibly a subset of a discrete
+# Continuous interval must be empty or a singleton to be possibly a subset of a discrete
 # range.
 Base.issubset(A::Interval, B::AbstractRange) =
     isempty(A) || (first(A) == last(A) && first(A) ∈ B)

@@ -97,7 +97,7 @@ See also [`Point`](@ref), [`IntervalLike`](@ref), [`BoundingBoxLike`](@ref).
 const PointLike{N} = Union{AbstractPoint{N},CartesianIndex{N}}
 # NOTE (1) The element type cannot be part of the signature because of Cartesian indices.
 #      (2) `NTuple{N}` won't work because there is no guaranties that conversion to
-#          a point is possoble.
+#          a point is possible.
 
 # Union of types to specify an `N`-dimensional Cartesian index.
 const CartesianIndexLike{N} = Union{CartesianIndex{N},NTuple{N,Integer},
