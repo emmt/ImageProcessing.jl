@@ -24,25 +24,35 @@ build(::Type{CartesianIndices}, start::CartesianIndex{N}, stop::CartesianIndex{N
         @testset "Miscellaneaous" begin
             @test_throws Exception Point(sin, "foo", 3)
         end
-        @testset "Point$coords" for coords in ((3//4,), (1,2,3), (-1f0,2f0), (-2e0, 0, 4f0, 0x5))
+        # NOTE For exact comparison (with `===`), we use coordinates that have exact
+        #      representation in floating-point (integers or rationals with a denominator
+        #      equal to a power of 2).
+        @testset "Point$coords" for coords in ((), (3//4,), (1,2,3), (-1f0,2f0), (-2e0, 0, 4f0, 0x5))
             N = length(coords)
-            T = promote_type(map(typeof, coords)...)
-            A = @inferred Point(coords)
+            T = N > 0 ? promote_type(map(typeof, coords)...) : Float32
+            A = N > 0 ? @inferred(Point(coords)) : @inferred(Point{N,T}(coords))
             @test A isa Point{N,T}
             # Iterator API.
             @test Base.IteratorSize(A) === Base.HasLength()
-            @test length(Point(coords)) == N
+            @test length(A) == N
+            @test length(typeof(A)) == N
             @test Base.IteratorEltype(A) === Base.HasEltype()
-            @test eltype(Point(coords)) == T
+            @test eltype(A) == T
+            @test eltype(typeof(A)) == T
             @test collect(A) == collect(A.coords)
             # Other constructors.
-            @test A === @inferred Point(coords...)
-            @test A === @inferred Point(Tuple(A))
-            @test A === @inferred Point(Tuple(A)...)
-            @test A === @inferred Point{N}(Tuple(coords))
-            @test A === @inferred Point{N}(Tuple(coords)...)
+            if N > 0
+                @test A === @inferred Point(coords...)
+                @test A === @inferred Point(Tuple(A))
+                @test A === @inferred Point(Tuple(A)...)
+                @test A === @inferred Point{N}(Tuple(coords))
+                @test A === @inferred Point{N}(Tuple(coords)...)
+                @test_throws Exception Point{N,true}(coords...)
+            end
             @test A === @inferred Point{N,T}(Tuple(coords))
             @test A === @inferred Point{N,T}(Tuple(coords)...)
+            @test_throws Exception Point{length(coords)+1,T}(coords...)
+            @test_throws Exception Point{Int8(length(coords)),T}(coords...)
             # Point as a tuple.
             @test A.coords === Tuple(A)
             @test A.coords === values(A)
@@ -66,34 +76,67 @@ build(::Type{CartesianIndices}, start::CartesianIndex{N}, stop::CartesianIndex{N
                 w, x, y, z = A
                 @test A.coords === (w, x, y, z)
             end
+            N > 0 || continue # FIXME make other tests run for 0-length points?
             # Conversions.
             S = T === Float64 ? Float32 : Float64
-            B = Point(map(as(S), A.coords))
-            @test Point(A) === A
-            @test Point{N}(A) === A
-            @test Point{N,T}(A) === A
-            @test Point{N,S}(A) === B
-            @test convert(Point, A) === A
-            @test convert(Point{N}, A) === A
-            @test convert(Point{N,T}, A) === A
-            @test convert(Point{N,S}, A) === B
-            @test convert_eltype(T, A) === A
-            @test convert_eltype(S, A) === B
+            B = @inferred Point(map(as(S), A.coords))
+            @test A === @inferred Point(A)
+            @test A === @inferred Point{N}(A)
+            @test A === @inferred Point{N,T}(A)
+            @test B === @inferred Point{N,S}(A)
+            @test A === @inferred convert(Point, A)
+            @test A === @inferred convert(Point{N}, A)
+            @test A === @inferred convert(Point{N,T}, A)
+            @test B === @inferred convert(Point{N,S}, A)
+            @test A === @inferred convert_eltype(T, A)
+            @test B === @inferred convert_eltype(S, A)
+            @test B === S.(A)
+            @test B === @inferred map(S, A)
+            @test A.coords === @inferred convert(Tuple, A)
+            @test B.coords === @inferred convert(Tuple{Vararg{S}}, A)
+            @test B.coords === @inferred convert(NTuple{N,S}, A)
             # Unary plus and minus.
             @test A === +A
-            @test map(-, A.coords) === Tuple(-A)
-            # Multiplication and division by a scalar.
+            @test Tuple(@inferred(-A)) === @inferred map(-, A.coords)
+            @test A === @inferred map(identity, A)
+            @test A === @inferred map(+, A)
+            @test @inferred(-A) === @inferred map(-, A)
+            # Multiplication and division by a scalar. NOTE Following above remark: only
+            # divide by powers of two.
             @test 2*A === Point(map(x -> 2*x, A.coords))
+            @test 2*A ===       map(x -> 2*x, A)
             @test A*2 === Point(map(x -> x*2, A.coords))
+            @test A*2 ===       map(x -> x*2, A)
             @test 2\A === Point(map(x -> 2\x, A.coords))
+            @test 2\A ===       map(x -> 2\x, A)
             @test A/2 === Point(map(x -> x/2, A.coords))
+            @test A/2 ===       map(x -> x/2, A)
             # Addition and subtraction of points.
-            B = 2*A
-            @test A + A === 2A
-            @test A + B === Point(A.coords .+ B.coords)
-            @test B + A === Point(B.coords .+ A.coords)
-            @test A - B === Point(A.coords .- B.coords)
-            @test B - A === Point(B.coords .- A.coords)
+            B = @inferred 3*A
+            C = @inferred A + A
+            @test C === @inferred(2A)
+            @test C === @inferred(Point(map(+, A.coords, A.coords)))
+            @test C === @inferred(Point(A.coords .+ A.coords))
+            @test C === @inferred(map(+, A, A))
+            @test C === @inferred(A .+ A)
+            C = @inferred A + B
+            @test C === @inferred(B + A)
+            @test C === @inferred(Point(map(+, A.coords, B.coords)))
+            @test C === @inferred(Point(A.coords .+ B.coords))
+            @test C === @inferred(map(+, A, B))
+            @test C === @inferred(A .+ B)
+            @test C === @inferred(B .+ A)
+            C = @inferred A - B
+            @test -C ==  @inferred(B - A) # `===` cannot hold because of the signed zero
+            @test  C === @inferred(Point(map(-, A.coords, B.coords)))
+            @test  C === @inferred(Point(A.coords .- B.coords))
+            @test  C === @inferred(map(-, A, B))
+            @test  C === @inferred(A .- B)
+            C = Point(ntuple(i -> isodd(i) ? -A[i] : 5A[i], length(A)))
+            D = @inferred(A + C + B)
+            @test D === @inferred(map(+, A, C, B))
+            @test D === @inferred((A + C) + B)
+            @test D === @inferred(A + (C + B))
             # Comparisons.
             @test A == A
             @test A != -A
@@ -101,15 +144,15 @@ build(::Type{CartesianIndices}, start::CartesianIndex{N}, stop::CartesianIndex{N
             @test (A < B) === (reverse(A.coords) < reverse(B.coords))
             @test (A <= B) === (reverse(A.coords) <= reverse(B.coords))
             # `zero` yields neutral element for addition.
-            @test A + zero(A) === A
-            @test A - zero(A) === A
-            @test zero(A) + A === A
-            @test zero(A) - A == -A
+            @test  A === @inferred(A + zero(A))
+            @test  A === @inferred(A - zero(A))
+            @test  A === @inferred(zero(A) + A)
+            @test -A ==  @inferred(zero(A) - A) # `===` cannot hold because of the signed zero
             # `one` yields multiplicative identity.
-            @test one(A)*A === A
-            @test A*one(A) === A
-            @test (-one(A))*A === -A
-            @test A*(-one(A)) === -A
+            @test  A === @inferred(one(A)*A)
+            @test  A === @inferred(A*one(A))
+            @test -A === @inferred((-one(A))*A)
+            @test -A === @inferred(A*(-one(A)))
             @test one(A)\A == A
             @test A/one(A) == A
             # `oneunit` yields Point(1,1,...).
@@ -121,15 +164,34 @@ build(::Type{CartesianIndices}, start::CartesianIndex{N}, stop::CartesianIndex{N
             @test Point(1,2)*3 === 3*Point(1,2) === 3 .* Point(1,2) === Point(1,2) .* 3 === Point(3,6)
             @test Point(6,9)/3 === 3\Point(6,9) === Point(6,9) ./ 3 === 3 .\ Point(6,9) === Point(2.0,3.0)
             @test clamp.(Point(-3,1,7), Point(0,1,2), Point(4,3,2)) === Point(0,1,2)
+            @test Point(-1,5) .+ 4.0 === 4.0 .+ Point(-1,5) === Point(3.0,9.0)
+            @test Point(-1,5) .- 4.0 === Point(-5.0,1.0)
+            @test 4.0 .- Point(-1,5) === Point(5.0,-1.0)
         end
         @testset "Points and Cartesian indices" begin
             I = CartesianIndex(-1,2,3)
-            A = Point{3,Int16}(-1,2,3)
+            N = length(I)
+            A = @inferred Point{N,Int16}(Tuple(I))
             @test Point(I) === Point(Tuple(I))
-            @test Point{3}(I) === Point(Tuple(I))
-            @test Point{3,Float32}(I) === Point(map(Float32, Tuple(I)))
+            @test Point{N}(I) === Point(Tuple(I))
+            @test Point{N,Float32}(I) === Point(map(Float32, Tuple(I)))
             @test CartesianIndex(A) === CartesianIndex(A.coords)
             @test_throws Exception CartesianIndex(Point(1.0, 2.0))
+            A = @inferred Point(reverse(Tuple(I)))
+            B = @inferred A + I
+            @test B isa Point
+            @test B === Point(map(+, Tuple(A), Tuple(I)))
+            @test B === @inferred I + A
+            B = @inferred A - I
+            @test B isa Point
+            @test B === Point(map(-, Tuple(A), Tuple(I)))
+            B = @inferred I - A
+            @test B isa Point
+            @test B === Point(map(-, Tuple(I), Tuple(A)))
+            B = @inferred float(A) - I
+            @test B isa Point
+            @test eltype(B) <: AbstractFloat
+            @test B === @inferred float(A - I)
         end
         @testset "Array indexing by points" begin
             A = copy(reshape(1:12, 3,4))
