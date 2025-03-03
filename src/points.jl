@@ -101,6 +101,13 @@ Base.values(p::AbstractPoint) = getfield(p, :coords)
 # conversion from tuples.
 Base.Tuple(p::Point) = values(p)
 
+# An integer-valued point can be automatically converted into a Cartesian index
+# in some common situations.
+@propagate_inbounds Base.getindex(A::AbstractArray, I::Point{N,<:Integer}) where {N} =
+    getindex(A, CartesianIndex(I))
+@propagate_inbounds Base.setindex!(A::AbstractArray, x, I::Point{N,<:Integer}) where {N} =
+    setindex!(A, x, CartesianIndex(I))
+
 #-----------------------------------------------------------------------------------------
 # Even though a point is not an abstract vector of coordinates, implement a subset of the
 # abstract vector API for abstract points.

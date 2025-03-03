@@ -131,6 +131,15 @@ build(::Type{CartesianIndices}, start::CartesianIndex{N}, stop::CartesianIndex{N
             @test CartesianIndex(A) === CartesianIndex(A.coords)
             @test_throws Exception CartesianIndex(Point(1.0, 2.0))
         end
+        @testset "Array indexing by points" begin
+            A = copy(reshape(1:12, 3,4))
+            @test A[Point(0x1,0x4)] == A[1,4]
+            @test A[Point(2,3)] == A[2,3]
+            A[Point(0x1,0x4)] = -5
+            @test A[1,4] == -5
+            A[Point(2,3)] = -10
+            @test A[2,3] == -10
+        end
         @testset "Comparisons for points" begin
             # `isless` shall compare in reverse lexicographic order.
             @test (Point((1,2)) < Point((1,2))) == false
