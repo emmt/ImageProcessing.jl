@@ -1,24 +1,24 @@
 """
-    A = Point{N,T}(coords...)
-    A = Point{N}(coords...)
-    A = Point(coords...)
+    p = Point{N,T}(coords...)
+    p = Point{N}(coords...)
+    p = Point(coords...)
 
 build a `N`-dimensional point of coordinates `coords...` stored as values of type `T`.
 Unspecified parameters `N` and/or `T` are inferred from `coords...`.
 
 Coordinates may also be given by a `N`-tuple or by a Cartesian index. Conversely, a point
-`A` can be converted into a `N`-tuple by `Tuple(A)`. Furthermore, a point `A` with integer
-coordinates can be converted into a Cartesian index by `CartesianIndex(A)`.
+`p` can be converted into a `N`-tuple by `Tuple(p)`. Furthermore, a point `p` with integer
+coordinates can be converted into a Cartesian index by `CartesianIndex(p)`.
 
-A point `A` may be indexed to retrieve its individual coordinates: the syntax `A[i]` is
-equivalent to `A.coords[i]` with `i` an integer index or an index range. For example,
-`A[2:3]` yields a tuple of the 2nd to 3rd coordinates of `A` while `A[:]` yields the
-`N`-tuple of coordinates of `A`. The latter may also be retrieved by `A.coords`,
-`values(A)`, or `Tuple(A)`. The type and number of coordinates are given by `T =
-eltype(A)` and `N = length(A)`.
+A point `p` may be indexed to retrieve its individual coordinates: the syntax `p[i]` is
+equivalent to `p.coords[i]` with `i` an integer index or an index range. For example,
+`p[2:3]` yields a tuple of the 2nd to 3rd coordinates of `p` while `p[:]` yields the
+`N`-tuple of coordinates of `p`. The latter may also be retrieved by `p.coords`,
+`values(p)`, or `Tuple(p)`. The type and number of coordinates are given by `T =
+eltype(p)` and `N = length(p)`.
 
-A point may be used as an iterator over its coordinates. For example, `x,y,z = A` can be
-written to extract the coordinates of a 3-dimensional point `A`.
+A point may be used as an iterator over its coordinates. For example, `x,y,z = p` can be
+written to extract the coordinates of a 3-dimensional point `p`.
 
 A number of arithmetic operations are implemented for points and are applied elementwise
 to the point coordinates: negation, addition, subtraction, and multiplication or division
@@ -26,20 +26,20 @@ by a scalar number.
 
 The following math functions can be applied to points:
 
-- `abs(A)`, `norm(A)`, `norm(A, 2)`, and `hypot(A)` yield the Euclidean norm of the vector
-  of coordinates of point `A`, while `norm(A, p)` yields the `p`-norm of the vector of
-  coordinates of point `A`;
+- `abs(p)`, `norm(p)`, `norm(p, 2)`, and `hypot(p)` yield the Euclidean norm of the vector
+  of coordinates of point `p`, while `abs2(p)` yields the squared Euclidean norm of `p`
+  and `norm(p, p)` yields the `p`-norm of `p`;
 
-- `min(A, B)`, `max(A, B)`, and `minmax(A, B)` work for points `A` and `B` as for
+- `min(p, q)`, `max(p, q)`, and `minmax(p, q)` work for points `p` and `q` as for
   Cartesian indices;
 
-- `dot(A, B)` yields the scalar product of the vectors of coordinates of points `A` and
-  `B`;
+- `dot(p, q)` yields the scalar product of the vectors of coordinates of points `p` and
+  `q`;
 
-- `atan(A)` yields the polar angle of 2-dimensional point `A`;
+- `atan(p)` yields the polar angle of 2-dimensional point `p`;
 
-- `cross(A, B)` and `A × B` yield the cross product of the vectors of coordinates of
-  2-dimensional points `A` and `B`.
+- `cross(p, q)` and `p × q` yield the cross product of the vectors of coordinates of
+  2-dimensional points `p` and `q`.
 
 """ Point
 
@@ -55,7 +55,7 @@ Point(coords::NTuple{N,T}) where {N,T} = Point{N,T}(coords)
 @inline function Point(coords::NTuple{N,Any}) where {N}
     T = promote_type(map(typeof, coords)...)
     isconcretetype(T) || throw(ArgumentError(
-        "coordinates cannot be converted to a common concrete type, you may explictly specify the type parameter `T` in constructor `Point{N,T}`"))
+        "coordinates cannot be converted to a common concrete type, you may explicitly specify the type parameter `T` in constructor `Point{N,T}`"))
     return Point{N,T}(coords)
 end
 
