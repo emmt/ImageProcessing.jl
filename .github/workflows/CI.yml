@@ -22,7 +22,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: ['1.0', '1.6', '1.10', '1', 'nightly']
+        # Julia ≥ 1.1 required for `Pkg.Registry.add`.
+        version: ['1.1', '1.6', '1.10', '1', 'nightly']
         os:
           - ubuntu-latest
         arch:
