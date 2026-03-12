@@ -1,6 +1,7 @@
 using ImageProcessing
 using TypeUtils
 using Test
+using LinearAlgebra
 
 using ImageProcessing: front, tail, mapreduce
 
@@ -197,6 +198,8 @@ build(::Type{CartesianIndices}, start::CartesianIndex{N}, stop::CartesianIndex{N
             @test A/one(A) == A
             # `oneunit` yields Point(1,1,...).
             @test Tuple(oneunit(A)) === ntuple(Returns(oneunit(eltype(A))), length(A))
+        end
+        @testset "Operations on points" begin
             # `map` and broadcasted operations on points.
             @test float(Point(1,2)) === float.(Point(1,2)) === Point(float(1), float(2))
             @test Point(1,2) + Point(-4,7) === Point(1,2) .+ Point(-4,7) === Point(-3,9)
@@ -207,6 +210,39 @@ build(::Type{CartesianIndices}, start::CartesianIndex{N}, stop::CartesianIndex{N
             @test Point(-1,5) .+ 4.0 === 4.0 .+ Point(-1,5) === Point(3.0,9.0)
             @test Point(-1,5) .- 4.0 === Point(-5.0,1.0)
             @test 4.0 .- Point(-1,5) === Point(5.0,-1.0)
+
+            # Math. functions on points.
+            @test @inferred(norm(Point(1.0,-2.0)))           === hypot(-2.0,1.0)
+            @test @inferred(norm(Point(3.0f0,2.0f0,-4.0f0))) === hypot(2.0f0,3.0f0,-4.0f0)
+            @test @inferred(norm(Point(-2.0,1.0)))           === hypot(1.0,-2.0)
+            #
+            @test @inferred(norm(Point(1.0,-2.0), 1))           === norm((-2.0,1.0), 1)
+            @test @inferred(norm(Point(3.0f0,2.0f0,-4.0f0), 2)) === norm((2.0f0,3.0f0,-4.0f0), 2)
+            @test @inferred(norm(Point(-2.0,1.0), Inf))         === norm((1.0,-2.0), Inf)
+            #
+            @test @inferred(hypot(Point(1.0,-2.0)))           === hypot(-2.0,1.0)
+            @test @inferred(hypot(Point(3.0f0,2.0f0,-4.0f0))) === hypot(2.0f0,3.0f0,-4.0f0)
+            @test @inferred(hypot(Point(-2.0,1.0)))           === hypot(1.0,-2.0)
+            #
+            @test @inferred(abs(Point(1.0,-2.0)))           === hypot(-2.0,1.0)
+            @test @inferred(abs(Point(3.0f0,2.0f0,-4.0f0))) === hypot(2.0f0,3.0f0,-4.0f0)
+            @test @inferred(abs(Point(-2.0,1.0)))           === hypot(1.0,-2.0)
+            #
+            @test @inferred(abs2(Point(1.0,-2.0)))           === sum(abs2.((-2.0,1.0)))
+            @test @inferred(abs2(Point(3.0f0,2.0f0,-4.0f0))) === sum(abs2.((2.0f0,3.0f0,-4.0f0)))
+            @test @inferred(abs2(Point(-2.0,1.0)))           === sum(abs2.((1.0,-2.0)))
+            #
+            @test @inferred(atan(Point(1.0,-2.0)))     === atan(-2.0,1.0)
+            @test @inferred(atan(Point(3.0,2.0)))      === atan(2.0,3.0)
+            @test @inferred(atan(Point(-2.0f0,1.0f0))) === atan(1.0f0,-2.0f0)
+            #
+            @test @inferred(dot(Point(-2.0f0,1.0f0),Point(4.0f0,-3.0f0))) === -11.0f0
+            @test @inferred(dot(Point(3.0f0),Point(2.0f0))) === 6.0f0
+            @test @inferred(dot(Point(1.0,-2.0,3.0),Point(4.0,-3.0,0.0))) === 10.0
+            @test @inferred(dot(Point(-1,-2,3),Point(5,7,11))) === 14
+            #
+            @test @inferred(cross(Point(-2.0f0,1.0f0),Point(4.0f0,-3.0f0))) === 2.0f0
+            @test @inferred(cross(Point(3,1),Point(2,5))) === 13
         end
         @testset "Points and Cartesian indices" begin
             I = CartesianIndex(-1,2,3)
