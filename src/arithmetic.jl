@@ -391,7 +391,7 @@ LinearAlgebra.norm(a::AbstractPoint, p::Real) = LinearAlgebra.norm(Tuple(a), p)
 Base.hypot(a::AbstractPoint) = hypot(Tuple(a)...)
 Base.abs(a::AbstractPoint) = hypot(a)
 Base.abs2(a::AbstractPoint) = mapreduce(abs2, +, Tuple(a))
-Base.Math.atan(a::AbstractPoint{2}) = atan(a[1], a[2])
+Base.Math.atan(a::AbstractPoint{2}) = atan(a[2], a[1])
 LinearAlgebra.dot(a::AbstractPoint{N}, b::AbstractPoint{N}) where {N} = mapreduce(*, +, Tuple(a), Tuple(b))
 LinearAlgebra.cross(a::AbstractPoint{2}, b::AbstractPoint{2}) = a[1]*b[2] - a[2]*b[1]
 
