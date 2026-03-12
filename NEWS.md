@@ -1,33 +1,45 @@
 # User visible changes in `ImageProcessing` package
 
-Non-breaking changes:
-- `oneunit(x)` for a point (or a point type) `x` yields a unitful unit step point.
-- Bug fix: `isless(x, y)` for points `x` and `y` compares coordinates in reverse order
-  (from last to first) as for Cartesian indices.
-- Non-exported public methods `ImageProcessing.front` and `ImageProcessing.tail` to
-  discard the last of the first element of a tuple.
-- Non-exported public method `ImageProcessing.compare_coordinates` implements coordinates
-  comparison for various comparison operators following similar rules as for Cartesian
-  indices.
-- Non-exported public method `ImageProcessing.has_integer_coordinates(x)` to check whether
-  `x` has integer coordinates.
-- `Point{N,T}` inherits from `AbstractPoint{N,T}` which is an abstract vector. Most of the
-  point API is available for abstract points.
-- New types `Interval{T}` and `BoundingBox{N,T}` to represent continuous intervals of
-  values of type `T` and hyper-rectangular `N`-dimensional continuous regions of
-  `N`-dimensional points of coordinate type `T` and with axes aligned with the Cartesian
-  axes.
-- `f = hard_thresholder(lvl)` or `f = soft_thresholder(lvl)` build a callable object `f`
-  such that `f(x)` yields `hard_thresholder(x,lvl)` or `soft_thresholder(x,lvl)`.
+## Unreleased
 
-Breaking changes:
+### Breaking changes
+
 - `IndexBox` has been removed. Use `BoundingBox` instead but the latter is continuous and
   more general than the latter which is discrete. The rational is that continuous sets are
   more flexible for coordinates computations and may be converted to some discrete
   approximation after having performed all necessary computations.
+
 - Non-exported public methods `to_dim`, `to_axis`, `to_size`, and `to_axes` have been
   removed. Use `as_array_dim`, `as_array_axis`, `as_array_size`, and `as_array_axes` from
   the `TypeUtils` package instead.shapes.
+
+
+### Non-breaking changes
+
+- `oneunit(x)` for a point (or a point type) `x` yields a unitful unit step point.
+
+- Bug fix: `isless(x, y)` for points `x` and `y` compares coordinates in reverse order (from
+  last to first) as for Cartesian indices.
+
+- Non-exported public methods `ImageProcessing.front` and `ImageProcessing.tail` to discard
+  the last of the first element of a tuple.
+
+- Non-exported public method `ImageProcessing.compare_coordinates` implements coordinates
+  comparison for various comparison operators following similar rules as for Cartesian
+  indices.
+
+- Non-exported public method `ImageProcessing.has_integer_coordinates(x)` to check whether
+  `x` has integer coordinates.
+
+- `Point{N,T}` inherits from `AbstractPoint{N,T}` which is an abstract vector. Most of the
+  point API is available for abstract points.
+
+- New types `Interval{T}` and `BoundingBox{N,T}` to represent continuous intervals of values
+  of type `T` and hyper-rectangular `N`-dimensional continuous regions of `N`-dimensional
+  points of coordinate type `T` and with axes aligned with the Cartesian axes.
+
+- `f = hard_thresholder(lvl)` or `f = soft_thresholder(lvl)` build a callable object `f`
+  such that `f(x)` yields `hard_thresholder(x,lvl)` or `soft_thresholder(x,lvl)`.
 
 # Version 0.2.0
 

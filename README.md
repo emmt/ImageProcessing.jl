@@ -44,9 +44,9 @@ simplify such conversion and make the code more readable, it is sufficient to ca
 
 ``` julia
 nearest(CartesianIndex, pnt) # round point to nearest Cartesian index
-round(CartesianIndex, pnt) # round point to nearest Cartesian index
-floor(CartesianIndex, pnt) # round point to nearest Cartesian index from below
-ceil(CartesianIndex, pnt) # round point to nearest Cartesian index from above
+round(CartesianIndex, pnt)   # round point to nearest Cartesian index
+floor(CartesianIndex, pnt)   # round point to nearest Cartesian index from below
+ceil(CartesianIndex, pnt)    # round point to nearest Cartesian index from above
 ```
 
 Similarly, even tough intervals and bounding-boxes represent continuous ranges, they may
@@ -54,11 +54,10 @@ be respectively converted to `AbstractRange` or `CartesianIndices` instances whi
 represent discrete ranges.
 
 Operators `∈` (`in`), `⊆` (`issubset`), and `∩` (`intersect`) may be used with points,
-intervals, and bounding-boxes. Integer-valued points, intervals, and bounding-boxes my
-also be tested with these operators against `CartesianIndex`, `AbstractRange{<:Integer}`,
-and `CartesianIndices` provided the two latter have unit-step. The operation will be
-performed as if the point, interval, or bounding-box has been converted to its discrete
-counterpart.
+intervals, and bounding-boxes. Integer-valued points, intervals, and bounding-boxes may also
+be tested with these operators against `CartesianIndex`, `AbstractRange{<:Integer}`, and
+`CartesianIndices` provided the two latter have unit-step. The operation will be performed
+as if the point, interval, or bounding-box has been converted to its discrete counterpart.
 
 ## Installation
 

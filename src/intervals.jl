@@ -1,7 +1,7 @@
 """
     I = Interval{T}(start, stop)
 
-builds an interval object representing the continuous range of values `x` of type `T` such
+Build an interval object representing the continuous range of values `x` of type `T` such
 that `start ≤ x ≤ stop`. Type parameter `T` is inferred from the arguments if omitted. If
 `start ≤ stop` does not hold, the interval is considered as empty which can be tested by
 `isempty(I)`.
@@ -28,21 +28,21 @@ Interval(start, stop) = Interval(promote(start, stop)...)
 """
     I = Interval(rng::AbstractRange)
 
-yields the interval that most tightly contains the values of the range `rng`.
+Return the interval that most tightly contains the values of the range `rng`.
 
-An interval may not be automatically converted into a range (the `convert` method cannot
-be used for that) because a range is a discrete set while an interval is a continuous set.
+An interval may not be automatically converted into a range (the `convert` method cannot be
+used for that) because a range is a discrete set while an interval is a continuous set.
 However, to retrieve the discrete range of values `R` that belong to an interval `I`, you
-may intersect the interval with the expected range type (which is meant to represent the
-set of all possible ranges in this context):
+may intersect the interval with the expected range type (which is meant to represent the set
+of all possible ranges in this context):
 
 ```julia
 R = I ∩ UnitRange
 R = I ∩ UnitRange{T}
 ```
 
-Calling `EasyRanges.ranges(I)` from the `EasyRanges` package also yields this result. It
-can be noted that this kind of conversion is restricted to unit-step ranges.
+Calling `EasyRanges.ranges(I)` from the `EasyRanges` package also yields this result. It can
+be noted that this kind of conversion is restricted to unit-step ranges.
 
 """
 Interval(rng::AbstractRange) = Interval(endpoints(rng)...)
