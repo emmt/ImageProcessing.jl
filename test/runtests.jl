@@ -19,6 +19,46 @@ build(::Type{CartesianIndices}, start::CartesianIndex{N}, stop::CartesianIndex{N
         @test tail((1,2)) === (2,)
         @test front((1,pi,:b)) === (1,pi)
         @test tail((1,pi,:b)) === (pi,:b)
+
+        # Soft thresholding.
+        @test @inferred(soft_thresholder( 4,   2    )) ===  2
+        @test @inferred(soft_thresholder( 3.0, 2    )) ===  1.0
+        @test @inferred(soft_thresholder( 2,   2.0  )) ===  0.0
+        @test @inferred(soft_thresholder( 1,   2.0  )) ===  0.0
+        @test @inferred(soft_thresholder(-2,   2.0  )) ===  0.0
+        @test @inferred(soft_thresholder(-3,   2.0f0)) === -1.0f0
+        @test @inferred(soft_thresholder(-4.0, 2.0  )) === -2.0
+        f = @inferred(soft_thresholder(2.0f0))
+        @test @inferred(f( 4    )) ===  2.0f0
+        @test @inferred(f( 3.0  )) ===  1.0
+        @test @inferred(f( 2.0f0)) ===  0.0f0
+        @test @inferred(f( 1    )) ===  0.0f0
+        @test @inferred(f(-2    )) ===  0.0f0
+        @test @inferred(f(-3    )) === -1.0f0
+        @test @inferred(f(-4.0  )) === -2.0
+
+        # Hard thresholding.
+        @test @inferred(hard_thresholder( 4,   2    )) ===  4
+        @test @inferred(hard_thresholder( 3.0, 2    )) ===  3.0
+        @test @inferred(hard_thresholder( 2,   2.0  )) ===  0.0
+        @test @inferred(hard_thresholder( 1,   2.0  )) ===  0.0
+        @test @inferred(hard_thresholder(-2,   2.0  )) ===  0.0
+        @test @inferred(hard_thresholder(-3,   2.0f0)) === -3.0f0
+        @test @inferred(hard_thresholder(-4.0, 2.0  )) === -4.0
+        f = @inferred(hard_thresholder(2.0f0))
+        @test @inferred(f( 4    )) ===  4.0f0
+        @test @inferred(f( 3.0  )) ===  3.0
+        @test @inferred(f( 2.0f0)) ===  0.0f0
+        @test @inferred(f( 1    )) ===  0.0f0
+        @test @inferred(f(-2    )) ===  0.0f0
+        @test @inferred(f(-3    )) === -3.0f0
+        @test @inferred(f(-4.0  )) === -4.0
+
+        # Non-negative part.
+        @test @inferred(nonnegative_part(-1.0f0)) === 0.0f0
+        @test @inferred(nonnegative_part(0)) === 0
+        @test @inferred(nonnegative_part(2.0)) === 2.0
+        @test @inferred(nonnegative_part(0x01)) === 0x01
     end
     @testset "Points" begin
         @testset "Miscellaneaous" begin

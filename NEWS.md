@@ -13,6 +13,9 @@
   removed. Use `as_array_dim`, `as_array_axis`, `as_array_size`, and `as_array_axes` from
   the `TypeUtils` package instead.shapes.
 
+- `soft_thresholder` and `hard_thresholder` have been fixed, they used to return the
+  non-negative part of the correct result.
+
 
 ### Non-breaking changes
 

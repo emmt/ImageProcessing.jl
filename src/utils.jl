@@ -9,34 +9,51 @@ zerofill!(A::AbstractArray) = fill!(A, zero(eltype(A)))
 """
     hard_thresholder(val, lvl)
 
-yields `val` if `val > lvl` holds and `zero(val)` otherwise.
+Return `val` if `abs(val) > lvl` holds and `zero(val)` otherwise. `lvl` shall be nonnegative
+(this is not verified).
 
+# See also
+
+[`soft_thresholder`](@ref).
+
+---
     f = hard_thresholder(lvl)
 
-builds a callable object `f` such `f(x)` yields `hard_thresholder(x, lvl)`.
-
-See also [`soft_thresholder`](@ref).
+Build a callable object `f` such `f(x)` yields `hard_thresholder(x, lvl)`.
 
 """
+hard_thresholder(val, lvl) = hard_thresholder(promote(val, lvl)...)
 hard_thresholder(val::T, lvl::T) where {T} =
-    ifelse(val > lvl, val, zero(T)) # NOTE: `ifelse` is to avoid branching
+    ifelse(abs(val) > lvl, val, zero(T)) # NOTE: `ifelse` is to avoid branching
 
 """
     soft_thresholder(val, lvl)
 
-yields the nonnegative part of `val - lvl`.
+Return `val - lvl` if `val > lvl` holds, `val + lvl` if `val < -lvl` holds, and zero
+otherwise. These rules imply that zero is returned if any of `val` or `lvl` is a *NaN*.
+`lvl` shall be nonnegative (this is not verified).
+
+# See also
+
+[`nonnegative_part`](@ref) and [`hard_thresholder`](@ref).
+
+---
 
     f = soft_thresholder(lvl)
 
-builds a callable object `f` such `f(x)` yields `soft_thresholder(x, lvl)`.
-
-See also [`nonnegative_part`](@ref), [`hard_thresholder`](@ref).
+Build a callable object `f` such `f(x)` yields `soft_thresholder(x, lvl)`.
 
 """
-soft_thresholder(val, lvl) = nonnegative_part(val - lvl)
+soft_thresholder(val, lvl) = soft_thresholder(promote(val, lvl)...)
+function soft_thresholder(val::T, lvl::T) where {T}
+    x = val - lvl
+    y = val + lvl
+    z = zero(T)
+    return ifelse(x > z, x, ifelse(y < z, y, z))
+end
 
 for f in (:hard_thresholder, :soft_thresholder)
-    @eval $f(lvl) = Base.F1x2($f, lvl)
+    @eval $f(lvl) = Base.Fix2($f, lvl)
 end
 
 """
