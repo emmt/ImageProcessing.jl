@@ -119,6 +119,19 @@ for (A, B) in ((:AbstractPoint, :AbstractPoint),
     end
 end
 
+function Base.isapprox(x::Point, y::Point; atol::Real=0,
+                       rtol::Real=Base.rtoldefault(eltype(x),eltype(y),atol),
+                       nans::Bool=false, norm::Function=norm)
+    length(x) == length(y) || return false
+    d = norm(x - y)
+    if isfinite(d)
+        return iszero(rtol) ? d <= atol : d <= max(atol, rtol*max(norm(x), norm(y)))
+    else
+        # Fall back to a component-wise approximate comparison.
+        return mapreduce((a, b) -> isapprox(a, b; rtol=rtol, atol=atol, nans=nans), &, x, y)
+    end
+end
+
 # Check equality of intervals and bounding-boxes. Note that `isequal` falls back to `==`.
 Base.:(==)(A::Interval, B::Interval) =
     (isempty(A) & isempty(B)) | ((first(A) == first(B)) & (last(A) == last(B)))

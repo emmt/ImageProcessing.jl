@@ -44,6 +44,8 @@
 - `f = hard_thresholder(lvl)` or `f = soft_thresholder(lvl)` build a callable object `f`
   such that `f(x)` yields `hard_thresholder(x,lvl)` or `soft_thresholder(x,lvl)`.
 
+- `isapprox(x, y)` for points `x` and `y`.
+
 # Version 0.2.0
 
 - New exported function `new_array(T, args...)` to build an array with undefined elements

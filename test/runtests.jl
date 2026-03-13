@@ -200,6 +200,34 @@ build(::Type{CartesianIndices}, start::CartesianIndex{N}, stop::CartesianIndex{N
             @test Tuple(oneunit(A)) === ntuple(Returns(oneunit(eltype(A))), length(A))
         end
         @testset "Operations on points" begin
+            # isapprox
+            x, y = 1.25, -2.75 # must be double precision because NaN is
+            xp, xn = prevfloat(x), nextfloat(x)
+            yp, yn = prevfloat(y), nextfloat(y)
+            @test true === @inferred isapprox(Point(xn), Point(x))
+            @test true === @inferred isapprox(Point(xp), Point(x))
+            @test true === @inferred isapprox(Point(xn,y), Point(x,y))
+            @test true === @inferred isapprox(Point(xp,y), Point(x,y))
+            @test true === @inferred isapprox(Point(x,yp), Point(x,y))
+            @test true === @inferred isapprox(Point(x,yn), Point(x,y))
+            @test true === @inferred isapprox(Point(xn,yp), Point(x,y))
+            @test true === @inferred isapprox(Point(xn,yn), Point(x,y))
+            @test true === @inferred isapprox(Point(xp,yp), Point(x,y))
+            @test true === @inferred isapprox(Point(xp,yn), Point(x,y))
+            #
+            @test true  === @inferred isapprox(Point(x), Point(x), atol=0, rtol=0)
+            @test false === @inferred isapprox(Point(xn), Point(x), atol=0, rtol=0)
+            @test false === @inferred isapprox(Point(xp), Point(x), atol=0, rtol=0)
+            @test true  === @inferred isapprox(Point(x,y), Point(x,y), atol=0, rtol=0)
+            @test false === @inferred isapprox(Point(xp,y), Point(x,y), atol=0, rtol=0)
+            @test false === @inferred isapprox(Point(xn,y), Point(x,y), atol=0, rtol=0)
+            @test false === @inferred isapprox(Point(x,yp), Point(x,y), atol=0, rtol=0)
+            @test false === @inferred isapprox(Point(x,yn), Point(x,y), atol=0, rtol=0)
+            #
+            @test false === @inferred isapprox(Point(x,NaN), Point(x,NaN), nans=false)
+            @test true  === @inferred isapprox(Point(x,NaN), Point(x,NaN), nans=true)
+            @test true  === @inferred isapprox(Point(xn,NaN), Point(x,NaN), nans=true)
+            #
             # `map` and broadcasted operations on points.
             @test float(Point(1,2)) === float.(Point(1,2)) === Point(float(1), float(2))
             @test Point(1,2) + Point(-4,7) === Point(1,2) .+ Point(-4,7) === Point(-3,9)

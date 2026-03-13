@@ -193,9 +193,6 @@ end
 
 #-------------------------------------------------------------------------------------------
 
-Base.isapprox(a::Point{<:Any,N}, b::Point{<:Any,N}; kwds...) where {N} =
-    Base.isapprox(collect(a), collect(b); kwds...)
-
 function runtests(; T::Type=Float32, shape=(100,100))
     A = rand(T, shape)
     cog1 = center_of_gravity_ref(identity, A)
