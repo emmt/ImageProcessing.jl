@@ -1,17 +1,17 @@
 """
     S = OnlineSum{T}(dims...; kwds...)
 
-yields an object to store a sum of, possibly weighted and/or recentered, *images* of size
+Return an object to store a sum of, possibly weighted and/or recentered, *images* of size
 `dims` and with values of type `T`.
 
-It is also possible to build an instance of `OnlineSum` by providing the arrays to store
-the denominator `den` and numerator `num` for each pixels of the weighted and/or
-recentered image:
+It is also possible to build an instance of `OnlineSum` by providing the arrays to store the
+denominator `den` and numerator `num` for each pixels of the weighted and/or recentered
+image:
 
     S = OnlineSum{T}(den, num; kwds...)
 
-In this case and if it is specified, `T` is the type of the division of an element of
-`num` by one element of `den`.
+In this case and if it is specified, `T` is the type of the division of an element of `num`
+by one element of `den`.
 
 Keyword `bad` is to specify the value of unmeasured pixels in the recentered image
 (`zero(T)` by default). Keyword `origin` is to specify the Cartesian coordinates of the
@@ -21,9 +21,8 @@ To add one more image, say `A`, in `S` call:
 
     push!(S, A)
 
-optionally with keywords `origin` and `weights` to specify the position of the origin in
-`A` and pixelwise nonnegative weights. The origin is rounded to the nearest pixel
-position.
+optionally with keywords `origin` and `weights` to specify the position of the origin in `A`
+and pixelwise nonnegative weights. The origin is rounded to the nearest pixel position.
 
 Call `mean(S)`, to retrieve the (weighted) mean of the recentered images.
 
@@ -38,9 +37,9 @@ function OnlineSum{T}(dims::Dims{N}; kwds...) where {T,N}
     return OnlineSum(zeros(T, dims), zeros(T, dims); kwds...)
 end
 function OnlineSum(den::AbstractArray{<:Any,N},
-                       num::AbstractArray{<:Any,N};
-                       bad = nothing,
-                       origin::ArrayNode{N} = default_origin(axes(num))) where {N}
+                   num::AbstractArray{<:Any,N};
+                   bad = nothing,
+                   origin::ArrayNode{N} = default_origin(axes(num))) where {N}
     axes(num) == axes(den) || throw(DimensionMismatch("numerator and denominator have different axes"))
     T = typeof(oneunit(eltype(num))/oneunit(eltype(den)))
     bad = bad === nothing ? zero(T) : as(T, bad)

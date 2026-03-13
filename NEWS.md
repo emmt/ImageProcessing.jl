@@ -5,7 +5,7 @@
 ### Breaking changes
 
 - `IndexBox` has been removed. Use `BoundingBox` instead but the latter is continuous and
-  more general than the latter which is discrete. The rational is that continuous sets are
+  more general than the former which is discrete. The rational is that continuous sets are
   more flexible for coordinates computations and may be converted to some discrete
   approximation after having performed all necessary computations.
 

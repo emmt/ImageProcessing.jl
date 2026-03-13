@@ -40,7 +40,7 @@ ceil(Point{N,Int}, pnt)    # round coordinates to nearest `Int` from above
 ```
 
 where `N` is the number of dimensions and then call `CartesianIndex` on the result. To
-simplify such conversion and make the code more readable, it is sufficient to call:
+simplify such conversions and make the code more readable, it is sufficient to call:
 
 ``` julia
 nearest(CartesianIndex, pnt) # round point to nearest Cartesian index

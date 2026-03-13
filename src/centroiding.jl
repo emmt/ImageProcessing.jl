@@ -2,7 +2,7 @@
     center_of_gravity([f,] A)
     center_of_gravity([f,] A, B)
 
-yield the center of gravity of the values in `N`-dimensional array `A`. The result is a
+Return the center of gravity of the values in `N`-dimensional array `A`. The result is a
 `N`-dimensional point computed by the formula:
 
     (Σᵢ mass(i)*Point(i))/(Σᵢ mass(i))
@@ -25,16 +25,16 @@ f(x, w=one(x)) = nonnegative_part(w*x)
 With the default *mass function*, `A` typically represents measured intensities while `B`
 represents weights.
 
-To restrict the computations to an hyper-rectangular sub-region, use a view or a boxed
-array of `A` (and `B`).
+To restrict the computations to an hyper-rectangular sub-region, use a view or a boxed array
+of `A` (and `B`).
 
-For efficiency, a user-defined *mass function* should avoid branching to favor
-vectorization of computations. If you want to compute the center of gravity for, possibly
-weighted, values above a level `lvl`, the *mass function* `f` may be defined by:
+For efficiency, a user-defined *mass function* should avoid branching to favor vectorization
+of computations. If you want to compute the center of gravity for, possibly weighted, values
+above a level `lvl`, the *mass function* `f` may be defined by:
 
 ```julia
-f(x) = soft_thresholder(x, lvl)
-f(x, w) = soft_thresholder(w*x, lvl)
+f(x) = nonnegative_part(x - lvl)
+f(x, w) = nonnegative_part(w*x - lvl)
 ```
 
 """
@@ -82,11 +82,10 @@ default_mass(x::Bool, y::Bool) = x & y
     ImageProcessing.default_origin(args...)
     ImageProcessing.default_origin((args...,))
 
-yield the origin assumed by default in the `ImageProcessing` package. Arguments may be a
-dimension length `dim` or an index range `rng` to yield the index of the central pixel
-along this dimension or range. Arguments `args...` may also be any number of array
-dimensions and/or array index ranges to yield the multi-dimensional index of the central
-pixel.
+Return the origin assumed by default in the `ImageProcessing` package. Arguments may be a
+dimension length `dim` or an index range `rng` to yield the index of the central pixel along
+this dimension or range. Arguments `args...` may also be any number of array dimensions
+and/or array index ranges to yield the multi-dimensional index of the central pixel.
 
 The same conventions as in `fftshift` and `ifftshift` are made for dimensions of even
 length.
@@ -104,7 +103,7 @@ _default_origin(firstindex::Int, length::Int) =
 """
     I = ImageProcessing.locate_maximum(A)
 
-yields the `N`-dimensional index of the first maximal entry in the `N`-dimensional array
+Return the `N`-dimensional index of the first maximal entry in the `N`-dimensional array
 `A`.
 
 """

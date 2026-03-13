@@ -3,7 +3,7 @@
     p = Point{N}(coords...)
     p = Point(coords...)
 
-build a `N`-dimensional point of coordinates `coords...` stored as values of type `T`.
+Build a `N`-dimensional point of coordinates `coords...` stored as values of type `T`.
 Unspecified parameters `N` and/or `T` are inferred from `coords...`.
 
 Coordinates may also be given by a `N`-tuple or by a Cartesian index. Conversely, a point
@@ -14,27 +14,26 @@ A point `p` may be indexed to retrieve its individual coordinates: the syntax `p
 equivalent to `p.coords[i]` with `i` an integer index or an index range. For example,
 `p[2:3]` yields a tuple of the 2nd to 3rd coordinates of `p` while `p[:]` yields the
 `N`-tuple of coordinates of `p`. The latter may also be retrieved by `p.coords`,
-`values(p)`, or `Tuple(p)`. The type and number of coordinates are given by `T =
-eltype(p)` and `N = length(p)`.
+`values(p)`, or `Tuple(p)`. The type and number of coordinates are given by `T = eltype(p)`
+and `N = length(p)`.
 
 A point may be used as an iterator over its coordinates. For example, `x,y,z = p` can be
 written to extract the coordinates of a 3-dimensional point `p`.
 
-A number of arithmetic operations are implemented for points and are applied elementwise
-to the point coordinates: negation, addition, subtraction, and multiplication or division
-by a scalar number.
+A number of arithmetic operations are implemented for points and are applied elementwise to
+the point coordinates: negation, addition, subtraction, and multiplication or division by a
+scalar number.
 
 The following math functions can be applied to points:
 
 - `abs(p)`, `norm(p)`, `norm(p, 2)`, and `hypot(p)` yield the Euclidean norm of the vector
-  of coordinates of point `p`, while `abs2(p)` yields the squared Euclidean norm of `p`
-  and `norm(p, p)` yields the `p`-norm of `p`;
+  of coordinates of point `p`, while `abs2(p)` yields the squared Euclidean norm of `p` and
+  `norm(p, p)` yields the `p`-norm of `p`;
 
-- `min(p, q)`, `max(p, q)`, and `minmax(p, q)` work for points `p` and `q` as for
-  Cartesian indices;
+- `min(p, q)`, `max(p, q)`, and `minmax(p, q)` work for points `p` and `q` as for Cartesian
+  indices;
 
-- `dot(p, q)` yields the scalar product of the vectors of coordinates of points `p` and
-  `q`;
+- `dot(p, q)` yields the scalar product of the vectors of coordinates of points `p` and `q`;
 
 - `atan(p)` yields the polar angle of 2-dimensional point `p`;
 
@@ -47,9 +46,8 @@ The following math functions can be applied to points:
 # overflow).
 #
 # NOTE My understanding is that a tuple can only be an `NTuple{N,T} where {N,T}` for
-#      concrete type `T` otherwise it can only be a `NTuple{N,Any} where {N}`. This is
-#      used to dispatch on these 2 possibilities so as to avoid `promote_type` if
-#      possible.
+#      concrete type `T` otherwise it can only be a `NTuple{N,Any} where {N}`. This is used
+#      to dispatch on these 2 possibilities so as to avoid `promote_type` if possible.
 Point(coords...) = Point(coords)
 Point(coords::NTuple{N,T}) where {N,T} = Point{N,T}(coords)
 @inline function Point(coords::NTuple{N,Any}) where {N}
