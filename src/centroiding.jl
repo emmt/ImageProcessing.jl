@@ -42,11 +42,14 @@ center_of_gravity(A::AbstractArray) = center_of_gravity(default_mass, A)
 center_of_gravity(A::AbstractArray{<:Any,N}, B::AbstractArray{<:Any,N}) where {N} =
     center_of_gravity(default_mass, A, B)
 
+# NOTE For vectors (1-D arrays), it is faster to not use @simd; for multi-dimensional arrays,
+#      @simd does not change the speed (but @inbounds does).
+
 function center_of_gravity(f, A::AbstractArray{<:Any,N}) where {N}
     zero_mass = zero(f(zero(eltype(A))))
     num = zero_mass*Point(zero(CartesianIndex{N}))
     den = zero_mass
-    @inbounds @simd for i in CartesianIndices(A)
+    @inbounds for i in CartesianIndices(A)
         mass = f(A[i])
         num += mass*Point(i)
         den += mass
@@ -61,7 +64,7 @@ function center_of_gravity(f, A::AbstractArray{<:Any,N},
     zero_mass = zero(f(zero(eltype(A)), zero(eltype(B))))
     num = zero_mass*Point(zero(CartesianIndex{N}))
     den = zero_mass
-    @inbounds @simd for i in CartesianIndices(inds)
+    @inbounds for i in CartesianIndices(inds)
         mass = f(A[i], B[i])
         num += mass*Point(i)
         den += mass
