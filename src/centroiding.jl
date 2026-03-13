@@ -97,7 +97,7 @@ default_origin(inds::RelaxedArrayShape) =
 default_origin(dim::Integer) = _default_origin(1, dim)
 default_origin(rng::AbstractUnitRange{<:Integer}) = _default_origin(first(rng), length(rng))
 
-_default_origin(firstindex::Int, length::Int) =
+_default_origin(firstindex::Integer, length::Integer) =
     as(Int, firstindex) + div(as(Int, length), 2)
 
 """
@@ -115,7 +115,7 @@ function locate_maximum(A::AbstractArray{T,N}) where {T,N}
             imax, vmax = i, v
         end
     end
-    if imax isa Node{N}
+    if imax isa CartesianIndex{N}
         return imax
     else
         return CartesianIndices(A)[imax]
