@@ -46,9 +46,8 @@ center_of_gravity(A::AbstractArray{<:Any,N}, B::AbstractArray{<:Any,N}) where {N
 #      @simd does not change the speed (but @inbounds does).
 
 function center_of_gravity(f, A::AbstractArray{<:Any,N}) where {N}
-    zero_mass = zero(f(zero(eltype(A))))
-    num = zero_mass*Point(zero(CartesianIndex{N}))
-    den = zero_mass
+    den = zero_mass(f, A)
+    num = den*Point(zero(CartesianIndex{N}))
     @inbounds for i in CartesianIndices(A)
         mass = f(A[i])
         num += mass*Point(i)
@@ -61,9 +60,8 @@ function center_of_gravity(f, A::AbstractArray{<:Any,N},
                            B::AbstractArray{<:Any,N}) where {N}
     inds = axes(A)
     axes(B) == inds || throw(DimensionMismatch("arrays must have the same axes"))
-    zero_mass = zero(f(zero(eltype(A)), zero(eltype(B))))
-    num = zero_mass*Point(zero(CartesianIndex{N}))
-    den = zero_mass
+    den = zero_mass(f, A, B)
+    num = den*Point(zero(CartesianIndex{N}))
     @inbounds for i in CartesianIndices(inds)
         mass = f(A[i], B[i])
         num += mass*Point(i)
@@ -71,6 +69,13 @@ function center_of_gravity(f, A::AbstractArray{<:Any,N},
     end
     return num/den
 end
+
+zero_mass(f, A::AbstractArray) = zero_mass(f, typeof(A))
+zero_mass(f, ::Type{A}) where {A<:AbstractArray} = zero(f(zero(eltype(A))))
+
+zero_mass(f, A::AbstractArray, B::AbstractArray) = zero_mass(f, typeof(A), typeof(B))
+zero_mass(f, ::Type{A}, ::Type{B}) where {A<:AbstractArray,B<:AbstractArray} =
+     zero(f(zero(eltype(A)), zero(eltype(b))))
 
 # A Boolean weight is considered as a strong zero (in the sense that `false*NaN -> 0`).
 default_mass(x) = nonnegative_part(x)
