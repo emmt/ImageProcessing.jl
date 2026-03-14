@@ -286,8 +286,8 @@ _update(val::T, adj::Number) where {T<:Number} = _update(val, convert(T, adj))
 _update(val::T, adj::T) where {T<:Number} = val + adj
 
 """
-    eqs = update(eqs::NormalEquations, yₖ, fxₖ...; wgt=wₖ)
-    eqs = update(eqs::NormalEquations, yₖ, fxₖ; wgt=wₖ)
+    eqs = update(eqs::NormalEquations, yₖ, fxₖ...; weight=wₖ)
+    eqs = update(eqs::NormalEquations, yₖ, fxₖ; weight=wₖ)
     eqs = update(eqs::NormalEquations, wₖ, yₖ, fxₖ)
 
 Update the coefficients of the normal equations stored by `eqs` for a new data value `yₖ`
@@ -301,13 +301,13 @@ yₖ ≈ c₁⋅f₁(xₖ) + c₂⋅f₂(xₖ) + ...
 
 for some unknown parameters `c = (c₁, c₂, ...)`.
 
-Keyword `wgt` is to specify a statistical weight `wₖ` for `yₖ`. Typically, the weight is the
-reciprocal of the variance of `yₖ`. If not specified, `wgt=𝟙` is assumed.
+Keyword `weight` is to specify a statistical weight `wₖ` for `yₖ`. Typically, the weight is the
+reciprocal of the variance of `yₖ`. If not specified, `weight=𝟙` is assumed.
 
 """
-update(eqs::NormalEquations, y::Real, fx::Real...; wgt::Real=𝟙) = update(eqs, wgt, y, fx)
-update(eqs::NormalEquations, y::Real, fx::Indexable{<:Real}; wgt::Real=𝟙) =
-    update(eqs, wgt, y, fx)
+update(eqs::NormalEquations, y::Real, fx::Real...; weight::Real=𝟙) = update(eqs, weight, y, fx)
+update(eqs::NormalEquations, y::Real, fx::Indexable{<:Real}; weight::Real=𝟙) =
+    update(eqs, weight, y, fx)
 
 function update(eqs::NormalEquations{N,T}, w::Union{Real,Neutral{1}}, y::Real,
                 fx::NTuple{N,Real}) where {N,T<:AbstractFloat}

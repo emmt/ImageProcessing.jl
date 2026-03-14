@@ -62,7 +62,7 @@ end
         y = mdot(c0, fx)
         w *= 1.1
         eqs1 = @inferred update(eqs1, w, y, fx)
-        eqs2 = @inferred update(eqs2, y, fx...; wgt=w)
+        eqs2 = @inferred update(eqs2, y, fx...; weight=w)
     end
     @test collect(eqs1.A) ≈ collect(eqs2.A)
     @test collect(eqs1.b) ≈ collect(eqs2.b)
