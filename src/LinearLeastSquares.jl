@@ -70,6 +70,7 @@ export
     update,
     update!
 
+using ..ImageProcessing
 using StaticArrays
 using LinearAlgebra
 using Neutrals
@@ -305,8 +306,8 @@ Keyword `weight` is to specify a statistical weight `wₖ` for `yₖ`. Typically
 reciprocal of the variance of `yₖ`. If not specified, `weight=𝟙` is assumed.
 
 """
-update(eqs::NormalEquations, y::Real, fx::Real...; weight::Real=𝟙) = update(eqs, weight, y, fx)
-update(eqs::NormalEquations, y::Real, fx::Indexable{<:Real}; weight::Real=𝟙) =
+update(eqs::NormalEquations, y::Real, fx::Real...; weight::Real=ONE) = update(eqs, weight, y, fx)
+update(eqs::NormalEquations, y::Real, fx::Indexable{<:Real}; weight::Real=ONE) =
     update(eqs, weight, y, fx)
 
 function update(eqs::NormalEquations{N,T}, w::Union{Real,Neutral{1}}, y::Real,
