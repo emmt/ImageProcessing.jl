@@ -72,6 +72,8 @@ end
     @test collect(c2) ≈ collect(c0)
     # Same fit but with list of functions.
     eqs = @inferred zero(NormalEquations{length(fns),Float64})
+    @test_throws DimensionMismatch update(eqs, 1.0, (fns..., identity), 0.0) # too many functions
+    @test_throws DimensionMismatch update(eqs, 1.0, fns[2:end], 0.0) # too few functions
     for x in X
         y = mdot(c0, mcall(fns, x))
         eqs = @inferred update(eqs, y, fns, x)
@@ -105,15 +107,6 @@ end
     for x in X
         y = mdot(c0, mcall(fns, x))
         eqs = @inferred update(eqs, y, fns, x)
-    end
-    c = @inferred solve(eqs)
-    @test collect(c) ≈ collect(c0)
-    # Same fit but with a vector of functions.
-    vfns = [fns...,]
-    eqs = @inferred zero(NormalEquations{length(vfns),Float32})
-    for x in X
-        y = mdot(c0, mcall(vfns, x))
-        eqs = @inferred update(eqs, y, vfns, x)
     end
     c = @inferred solve(eqs)
     @test collect(c) ≈ collect(c0)

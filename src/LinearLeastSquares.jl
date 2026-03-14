@@ -307,8 +307,8 @@ for some unknown parameters `c = (c₁, c₂, ...)`.
 Keyword `weight` is to specify a statistical weight `wₖ` for `yₖ`. Typically, the weight is the
 reciprocal of the variance of `yₖ`. If not specified, `weight=𝟙` is assumed.
 
-For convenience, `fxₖ` can also be specified as a tuple or vector of model functions
-followed by the independent variable `xₖ`:
+For convenience, `fxₖ` can also be specified as a tuple of model functions followed by the
+independent variable `xₖ`:
 
 ```
 eqs = update(eqs, yₖ, (f₁, f₂, ...), xₖ; weight=wₖ)
@@ -316,8 +316,8 @@ eqs = update(eqs, wₖ, yₖ, (f₁, f₂, ...), xₖ) # equivalent
 ```
 
 which are both the same as specifying `fxₖ` as `(f₁(xₖ), f₂(xₖ), ...)` or, if `xₖ` is a
-tuple, as `(f₁(xₖ...), f₂(xₖ...), ...)`. For type inference, it is better to specify
-a tuple of model functions rather than a vector although this is supported.
+tuple, as `(f₁(xₖ...), f₂(xₖ...), ...)`. For type inference, it is purposely not supported
+to have a vector of model functions, they must be provided by a tuple.
 
 """
 update(eqs::NormalEquations, y::Real, fx::Real...; weight::Real=ONE) = update(eqs, weight, y, fx)
@@ -371,11 +371,11 @@ end
 # Model components specified as a tuple (or vector) of function followed by the independent
 # variable.
 function update(eqs::NormalEquations{N,T}, y::Real,
-                fns::Indexable{<:Function}, x; weight::Real=ONE) where {N,T<:AbstractFloat}
+                fns::Tuple{Vararg{Function}}, x; weight::Real=ONE) where {N,T<:AbstractFloat}
     return update(eqs, weight, y, fns, x)
 end
 function update(eqs::NormalEquations{N,T}, w::Real, y::Real,
-                fns::Indexable{<:Function}, x) where {N,T<:AbstractFloat}
+                fns::Tuple{Vararg{Function}}, x) where {N,T<:AbstractFloat}
     return update(eqs, w, y, mcall(NTuple{N,T}, fns, x))
 end
 
