@@ -45,12 +45,13 @@ end
 c = solve(eqs)
 ```
 
+It is also possible to directly specify a list of model functions in `update`.
 
 ```julia
-fns = (x -> 1.0, x -> x, x -> sin(x))
-eqs = NormalEquations{3,Float64}() # instantiate normal equations for 3 unknowns
+fns = (x -> 1.0, identity, sin)
+eqs = NormalEquations{length(fns),Float64}()
 for (x, y) in zip(X, Y)
-    eqs = update(eqs, y, 1.0, x, sin(x)ntuple(i -> fns[i](x), 3))
+    eqs = update(eqs, y, fns, x)
 end
 c = solve(eqs)
 ```
@@ -74,6 +75,7 @@ using ..ImageProcessing
 using StaticArrays
 using LinearAlgebra
 using Neutrals
+using Base: @propagate_inbounds
 
 #------------------------------------------------------------------------------------- API -
 
@@ -305,6 +307,18 @@ for some unknown parameters `c = (c₁, c₂, ...)`.
 Keyword `weight` is to specify a statistical weight `wₖ` for `yₖ`. Typically, the weight is the
 reciprocal of the variance of `yₖ`. If not specified, `weight=𝟙` is assumed.
 
+For convenience, `fxₖ` can also be specified as a tuple or vector of model functions
+followed by the independent variable `xₖ`:
+
+```
+eqs = update(eqs, yₖ, (f₁, f₂, ...), xₖ; weight=wₖ)
+eqs = update(eqs, wₖ, yₖ, (f₁, f₂, ...), xₖ) # equivalent
+```
+
+which are both the same as specifying `fxₖ` as `(f₁(xₖ), f₂(xₖ), ...)` or, if `xₖ` is a
+tuple, as `(f₁(xₖ...), f₂(xₖ...), ...)`. For type inference, it is better to specify
+a tuple of model functions rather than a vector although this is supported.
+
 """
 update(eqs::NormalEquations, y::Real, fx::Real...; weight::Real=ONE) = update(eqs, weight, y, fx)
 update(eqs::NormalEquations, y::Real, fx::Indexable{<:Real}; weight::Real=ONE) =
@@ -353,6 +367,38 @@ end
 
 @noinline throw_invalid_weights(w::Real) =
     throw(ArgumentError("weights must all be finite and nonnegative, got $w"))
+
+# Model components specified as a tuple (or vector) of function followed by the independent
+# variable.
+function update(eqs::NormalEquations{N,T}, y::Real,
+                fns::Indexable{<:Function}, x; weight::Real=ONE) where {N,T<:AbstractFloat}
+    return update(eqs, weight, y, fns, x)
+end
+function update(eqs::NormalEquations{N,T}, w::Real, y::Real,
+                fns::Indexable{<:Function}, x) where {N,T<:AbstractFloat}
+    return update(eqs, w, y, mcall(NTuple{N,T}, fns, x))
+end
+
+@propagate_inbounds function _mcall(::Type{T}, fns::Indexable{<:Function},
+                                    i::Int, x) where {T}
+    return convert(T, fns[i](x))::T
+end
+@propagate_inbounds function _mcall(::Type{T}, fns::Indexable{<:Function},
+                                    i::Int, x::Tuple) where {T}
+    return convert(T, fns[i](x...))::T
+end
+
+function mcall(::Type{NTuple{N,T}},
+               fns::NTuple{N,Function}, x) where {N,T<:AbstractFloat}
+    return ntuple(i -> _mcall(T, fns, i, x), Val(N))::NTuple{N,T}
+end
+
+function mcall(::Type{NTuple{N,T}},
+               fns::Indexable{<:Function}, x) where {N,T<:AbstractFloat}
+    length(fns) == N || throw(DimensionMismatch(
+        "expecting $N model function(s), got $(length(fns))"))
+    return ntuple(i -> @inbounds(_mcall(T, fns, i, x)), Val(N))::NTuple{N,T}
+end
 
 @generated function lhs_matrix(eqs::NormalEquations{N,T}; readonly::Bool=false) where {N,T}
     A = Expr(:tuple)

@@ -70,6 +70,14 @@ end
     c2 = @inferred solve(eqs2)
     @test collect(c1) ≈ collect(c0)
     @test collect(c2) ≈ collect(c0)
+    # Same fit but with list of functions.
+    eqs = @inferred zero(NormalEquations{length(fns),Float64})
+    for x in X
+        y = mdot(c0, mcall(fns, x))
+        eqs = @inferred update(eqs, y, fns, x)
+    end
+    c = @inferred solve(eqs)
+    @test collect(c) ≈ collect(c0)
 
     # Fit a straight line plus sine.
     fns = (x -> true, identity, sin) # `true` is to force a conversion
@@ -89,6 +97,23 @@ end
         fx = mcall(fns, x)
         y = mdot(c0, fx)
         eqs = @inferred update(eqs, y, fx)
+    end
+    c = @inferred solve(eqs)
+    @test collect(c) ≈ collect(c0)
+    # Same fit but with a tuple of functions.
+    eqs = @inferred zero(NormalEquations{length(fns),Float32})
+    for x in X
+        y = mdot(c0, mcall(fns, x))
+        eqs = @inferred update(eqs, y, fns, x)
+    end
+    c = @inferred solve(eqs)
+    @test collect(c) ≈ collect(c0)
+    # Same fit but with a vector of functions.
+    vfns = [fns...,]
+    eqs = @inferred zero(NormalEquations{length(vfns),Float32})
+    for x in X
+        y = mdot(c0, mcall(vfns, x))
+        eqs = @inferred update(eqs, y, vfns, x)
     end
     c = @inferred solve(eqs)
     @test collect(c) ≈ collect(c0)
