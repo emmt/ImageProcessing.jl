@@ -29,7 +29,7 @@ jobs:
           - windows-latest
         arch:
           - x64
-       include:
+        include:
           - os: ubuntu-latest
             version: '1'
             arch: 'x86'
