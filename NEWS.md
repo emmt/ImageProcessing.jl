@@ -46,6 +46,8 @@
 
 - `isapprox(x, y)` for points `x` and `y`.
 
+- New sub-module `LinearLeastSquares`.
+
 # Version 0.2.0
 
 - New exported function `new_array(T, args...)` to build an array with undefined elements

@@ -223,8 +223,12 @@ struct NormalEquations{N,T<:AbstractFloat,L} <: StaticNormalEquations
     end
 end
 
+Base.eltype(eqs::NormalEquations) = eltype(typeof(eqs))
+Base.eltype(::Type{<:NormalEquations{N,T}}) where {N,T} = T
+
 """
     eqs = NormalEquations{N,T}()
+    eqs = zero(NormalEquations{N,T})
 
 Return an immutable object `eqs` with coefficients of type `T` of `N` normal equations.
 In the returned objects, all coefficients are `zero(T)`.
@@ -234,7 +238,19 @@ data and eventually call [`solve(eqs)`])(@ref solve) to compute the solution of 
 equations.
 
 """
-@inline function NormalEquations{N,T}() where {N,T<:AbstractFloat}
+NormalEquations{N,T}() where {N,T<:AbstractFloat} = zero(NormalEquations{N,T})
+NormalEquations{N,T,L}() where {N,T<:AbstractFloat,L} = zero(NormalEquations{N,T,L})
+
+Base.zero(eqs::NormalEquations) = zero(typeof(eqs))
+function Base.zero(::Type{NormalEquations{N,T,L}}) where {N,T,L}
+    N::Int
+    L::Int
+    L == packed_symmetrix_length(N) || throw(DimensionMismatch(
+        "with `N=$N`, expecting `L=$(packed_symmetrix_length(N))`, got `L=$L`"))
+    return zero(NormalEquations{N,T})
+end
+
+@inline function Base.zero(::Type{NormalEquations{N,T}}) where {N,T}
     N::Int
     A = ntuple(Returns(zero(T)), Val(packed_symmetrix_length(N)))
     b = ntuple(Returns(zero(T)), Val(N))
@@ -293,10 +309,10 @@ update(eqs::NormalEquations, y::Real, fx::Real...; wgt::Real=𝟙) = update(eqs,
 update(eqs::NormalEquations, y::Real, fx::Indexable{<:Real}; wgt::Real=𝟙) =
     update(eqs, wgt, y, fx)
 
-#function update(eqs::NormalEquations{N,T}, w::Union{Real,Neutral{1}}, y::Real,
-#                fx::NTuple{N,Real}) where {N,T<:AbstractFloat}
-#    return update(eqs, lazy_convert(T, w), convert(T, y), convert(NTuple{N,T}, fx))
-#end
+function update(eqs::NormalEquations{N,T}, w::Union{Real,Neutral{1}}, y::Real,
+                fx::NTuple{N,Real}) where {N,T<:AbstractFloat}
+    return update(eqs, lazy_convert(T, w), convert(T, y), convert(NTuple{N,T}, fx))
+end
 
 function update(eqs::NormalEquations{N,T}, w::Union{Real,Neutral{1}}, y::Real,
                 fx::Indexable{<:Real}) where {N,T<:AbstractFloat}
@@ -323,26 +339,7 @@ end
         push!(b.args, :(eqs.b[$i] + $wfx_i*y))
     end
     return quote
-        $(init...)
-        return NormalEquations{N,T}($(A), $(b))
-    end
-end
-
-function encode_update(N::Int)
-    init = Expr[]
-    A = Expr(:tuple)
-    b = Expr(:tuple)
-    k = 0 # index in packed eqs.A
-    for i in 1:N
-        wfx_i = Symbol("wfx_",i)
-        push!(init, :($(wfx_i) = w*fx[$i]))
-        for j in i:N
-            k += 1
-            push!(A.args, :(eqs.A[$k] + $(wfx_i)*fx[$j]))
-        end
-        push!(b.args, :(eqs.b[$i] + $wfx_i*y))
-    end
-    return quote
+        (isfinite(w) && w > zero(w)) || return eqs # skip invalid data
         $(init...)
         return NormalEquations{N,T}($(A), $(b))
     end
