@@ -94,7 +94,7 @@ normal equations.
 abstract type AbstractNormalEquations end
 
 """
-   StaticNormalEquations
+   StaticNormalEquations{N}
 
 Abstract super-type of static (i.e. immutable) objects storing the coefficients of the
 *normal equations*. For an object `eqs` of this kind, the coefficients of the normal
@@ -104,8 +104,10 @@ equations are typically updated by:
 eqs = update(eqs, args...; kwds..)
 ```
 
+Parameter `N` is the number of unknowns.
+
 """
-abstract type StaticNormalEquations <: AbstractNormalEquations end
+abstract type StaticNormalEquations{N} <: AbstractNormalEquations end
 
 """
    MutableNormalEquations
@@ -218,7 +220,7 @@ equations, it is also the length of `b`. `T` is the type of the coefficients sto
 `eqs`. The number of packed coefficients in `A` is equal to `(N*(N + 1)) ÷ 2`.
 
 """
-struct NormalEquations{N,T<:AbstractFloat,L} <: StaticNormalEquations
+struct NormalEquations{N,T<:AbstractFloat,L} <: StaticNormalEquations{N}
     # The coefficients of the LHS matrix are packed but can be in row-major or column-major
     # order.
     A::NTuple{L,T} # packed coefficients of the LHS matrix
