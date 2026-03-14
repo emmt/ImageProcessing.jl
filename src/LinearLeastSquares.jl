@@ -339,11 +339,19 @@ end
         push!(b.args, :(eqs.b[$i] + $wfx_i*y))
     end
     return quote
-        (isfinite(w) && w > zero(w)) || return eqs # skip invalid data
-        $(init...)
-        return NormalEquations{N,T}($(A), $(b))
+        if isfinite(w) && w > zero(w)
+            $(init...)
+            return NormalEquations{N,T}($(A), $(b))
+        elseif iszero(w)
+            return eqs
+        else
+            throw_invalid_weights(w)
+        end
     end
 end
+
+@noinline throw_invalid_weights(w::Real) =
+    throw(ArgumentError("weights must all be finite and nonnegative, got $w"))
 
 @generated function lhs_matrix(eqs::NormalEquations{N,T}; readonly::Bool=false) where {N,T}
     A = Expr(:tuple)

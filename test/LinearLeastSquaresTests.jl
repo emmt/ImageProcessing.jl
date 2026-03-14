@@ -48,6 +48,13 @@ end
     @test eqs1 === @inferred NormalEquations{n,eltype(eqs),(n*(n+1))>>1}()
     @test_throws Exception NormalEquations{n,Int16}() # T must be floating-point
     @test_throws Exception NormalEquations{n,Float32,1}() # invalid L
+    # weights must be finite and non-negative
+    @test_throws ArgumentError update(eqs1, -1.0, 1.0, (2.0, 3.0))
+    @test_throws ArgumentError update(eqs1, Inf, 1.0, (2.0, 3.0))
+    @test_throws ArgumentError update(eqs1, NaN, 1.0, (2.0, 3.0))
+    # zero weight change nothing
+    eqs2 = @inferred update(eqs1, 0.0, 1.0, (2.0, 3.0))
+    @test eqs2 === eqs1
     eqs2 = eqs1
     w = 1.0
     for x in X
