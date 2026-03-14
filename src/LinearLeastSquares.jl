@@ -75,7 +75,10 @@ using ..ImageProcessing
 using StaticArrays
 using LinearAlgebra
 using Neutrals
+using TypeUtils
 using Base: @propagate_inbounds
+
+TypeUtils.@public(lazy_convert)
 
 #------------------------------------------------------------------------------------- API -
 
@@ -201,6 +204,9 @@ Type alias for indexable objects (i.e. tuples or vectors) with elements of type 
 """
 const Indexable{T} = Union{AbstractVector{T},Tuple{Vararg{T}}}
 
+const Value{T<:Real} = Union{T,Neutral}
+const Weight{T<:Real} = Union{T,typeof(ZERO),typeof(ONE)}
+
 #------------------------------------------------ NormalEquations: Static normal equations -
 
 """
@@ -285,7 +291,7 @@ update(eqs::NormalEquations{N,T,L}, A::NTuple{L,Real}, b::NTuple{N,Real}) where 
     NormalEquations{N,T}(map(_update, eqs.A, A), map(_update, eqs.b, b))
 
 # Add an increment to a value, preserving the type of the value.
-_update(val::T, adj::Number) where {T<:Number} = _update(val, convert(T, adj))
+_update(val::T, adj::Number) where {T<:Number} = (val + lazy_convert(T, adj))::T
 _update(val::T, adj::T) where {T<:Number} = val + adj
 
 """
@@ -326,7 +332,8 @@ update(eqs::NormalEquations, y::Real, fx::Indexable{<:Real}; weight::Real=ONE) =
 
 function update(eqs::NormalEquations{N,T}, w::Union{Real,Neutral{1}}, y::Real,
                 fx::NTuple{N,Real}) where {N,T<:AbstractFloat}
-    return update(eqs, lazy_convert(T, w), convert(T, y), convert(NTuple{N,T}, fx))
+    # NOTE to speed-up some computations, neutrals are kept in `fx`
+    return update(eqs, lazy_convert(T, w), convert(T, y), map(lazy_convert(T), fx))
 end
 
 function update(eqs::NormalEquations{N,T}, w::Union{Real,Neutral{1}}, y::Real,
@@ -335,11 +342,13 @@ function update(eqs::NormalEquations{N,T}, w::Union{Real,Neutral{1}}, y::Real,
         "expecting $N model component(s) in `fx`, got $(length(fx))"))
     off = firstindex(fx) - 1
     return update(eqs, lazy_convert(T, w), convert(T, y),
+                  # NOTE using lazy_convert below would be overkill
                   ntuple(i -> convert(T, @inbounds(fx[off + i])), Val(N)))
 end
 
-@generated function update(eqs::NormalEquations{N,T}, w::Union{T,Neutral{1}}, y::T,
-                           fx::NTuple{N,T}) where {N,T<:AbstractFloat}
+@generated function update(eqs::NormalEquations{N,T}, w::Weight{T}, y::T,
+                           # NOTE to speed-up some operations, `fx` may contain neutrals
+                           fx::NTuple{N,Value{T}}) where {N,T<:AbstractFloat}
     init = Expr[]
     A = Expr(:tuple)
     b = Expr(:tuple)
@@ -418,7 +427,21 @@ rhs_vector(eqs::NormalEquations{N,T}; readonly::Bool=false) where {N,T} =
 
 solve!(eqs::NormalEquations) = solve(eqs)
 
-lazy_convert(::Type{T}, x) where {T<:Number} = convert(T, x)
+"""
+    LinearLeastSquares.lazy_convert(T, x) -> x′
+
+Convert `x` to type `T` unless `x` is a neutral number in which case `x` is returned.
+
+"""
+lazy_convert(::Type{T}, x) where {T<:Number} = convert(T, x)::T
 lazy_convert(::Type{T}, x::Neutral) where {T<:Number} = x
+
+"""
+    c = LinearLeastSquares.lazy_convert(T)
+
+Return a callable object `c` such that `c(x)` yields `lazy_convert(T, x)`.
+
+"""
+lazy_convert(::Type{T}) where {T<:Number} = TypeUtils.Converter(lazy_convert, T)
 
 end # module

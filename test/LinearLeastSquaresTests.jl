@@ -1,5 +1,10 @@
 module LinearLeastSquaresTests
-using Test, ImageProcessing
+
+using Test
+using Neutrals
+using ImageProcessing
+using ImageProcessing.LinearLeastSquares
+using .LinearLeastSquares: lazy_convert
 using Base: @propagate_inbounds
 
 const Indexable{T} = Union{AbstractVector{T},Tuple{Vararg{T}}}
@@ -21,6 +26,22 @@ function mcall(fns::AbstractVector{<:Function}, x)
 end
 
 @testset "Linear least squares" begin
+    # Utilities.
+    @test -2.5f0 === @inferred lazy_convert(Float32, -5//2)
+    @test  4.0f0 === @inferred lazy_convert(Float32,  4)
+    @test  5.0f0 === @inferred lazy_convert(Float32,  5.0)
+    @test   ZERO === @inferred lazy_convert(Float32, ZERO)
+    @test    ONE === @inferred lazy_convert(Float32,  ONE)
+    @test   -ONE === @inferred lazy_convert(Float32, -ONE)
+    c = @inferred lazy_convert(Float32)
+    @test c isa Function
+    @test -2.5f0 === @inferred c(-5//2)
+    @test  4.0f0 === @inferred c(4)
+    @test  5.0f0 === @inferred c(5.0)
+    @test   ZERO === @inferred c(ZERO)
+    @test    ONE === @inferred c( ONE)
+    @test   -ONE === @inferred c(-ONE)
+
     # Fit a straight line.
     fns = (x -> 1.0, x -> x)
     c0 = (-2.25, 0.50)
