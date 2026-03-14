@@ -510,4 +510,7 @@ build(::Type{CartesianIndices}, start::CartesianIndex{N}, stop::CartesianIndex{N
         end
     end
 end
+
+include("LinearLeastSquaresTests.jl")
+
 nothing

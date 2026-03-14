@@ -42,6 +42,7 @@ using OffsetArrays
 using Statistics
 using StructuredArrays
 using TypeUtils
+using Reexport
 
 using EasyRanges: ranges
 using Base: @propagate_inbounds, Fix1, Fix2
@@ -56,5 +57,19 @@ include("boxes.jl")
 include("arithmetic.jl")
 include("centroiding.jl")
 include("onlinesum.jl")
+
+include("LinearLeastSquares.jl")
+@reexport import .LinearLeastSquares:
+    LinearLeastSquares,
+    AbstractNormalEquations,
+    StaticNormalEquations,
+    MutableNormalEquations,
+    NormalEquations,
+    rhs_vector,
+    lhs_matrix,
+    solve,
+    solve!,
+    update,
+    update!
 
 end # module
