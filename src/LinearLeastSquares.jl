@@ -1,10 +1,10 @@
 """
 
-Module `LinearLeastSquares` (LLS) provides methods for solving, possibly weighted, linear
-least square problems.
+Module `LinearLeastSquares` provides methods for solving, possibly weighted, linear least
+square (LLS) problems.
 
-In the (weighted) least squares method, the `k`-th measured data `yₖ` is assumed to be given
-by:
+In the (weighted) least squares method, the `k`-th observed value `yₖ` is assumed to be
+given by:
 
 ```
 yₖ ≈ f(xₖ, c)
@@ -14,14 +14,17 @@ where `≈` accounts for measurement noise and model approximations, `f(xₖ,c)`
 predicted by the model for the (known) *independent variable* `xₖ` and (unknown) *model
 parameters* `c`.
 
-The objective of the (weighted) least squares method is to estimate the unknown model
+The objective of the weighted least squares (WLS) method is to estimate the unknown model
 parameters by:
 
 ```
 ĉ = argmin_c Σₖ wₖ⋅(yₖ - f(xₖ, c))²
 ```
 
-for given nonnegative weights `wₖ`.
+for a set of observations `yₖ` and given nonnegative weights `wₖ`. The solution `ĉ` of the
+WLS problem is the *maximum likelihood estimator* (MLE) of the parameters if the
+observations have a Gaussian distribution, are mutually independent, and the weights
+are given by `wₖ = 1/Cov(yₖ)`.
 
 For a linear model, the model writes:
 
@@ -29,13 +32,17 @@ For a linear model, the model writes:
 f(xₖ, c) = c₁⋅f₁(xₖ) + c₂⋅f₂(xₖ) + ...
 ```
 
-and the (weighted) least squares problem has a closed-form solution given by solving the
-*normal equations*.
+and the weighted least squares problem has a closed-form solution given by solving the
+*normal equations* `A*c = b` with `A` a symmetric nonnegative `n × n` matrix called the
+*left-hand side* (LHS) matrix of the normal equations and `b` a `n` vector called the
+*right-hand side* (RHS) vector of the normal equations. The number of equations `n` is the
+number of unknowns, i.e, `n = length(c)`.
 
-# Example
+# Examples
 
-Suppose we want to fit the model `c₁ + c₂*x + c₃*sin(x)` to some data in array `Y` with
-corresponding independent variables in array `X`. This can be done by:
+Suppose we want to fit the model `c₁ + c₂*x + c₃*sin(x)` to some observations collected in
+array `Y` with corresponding independent variables in array `X` of same shape as `Y`. This
+can be done by:
 
 ```julia
 eqs = NormalEquations{3,Float64}() # instantiate normal equations for 3 unknowns
@@ -85,40 +92,47 @@ TypeUtils.@public(lazy_convert)
 """
     AbstractNormalEquations
 
-Abstract super-type of objects storing the coefficients of the so-called *normal equations*
-which are a system of linear equations of the form `A*x = b` where `A` and `b` are
-respectively is the *left-hand side* (LHS) matrix and *right-hand side* (RHS) vector of the
-normal equations.
+Abstract super-type of objects storing the coefficients of *normal equations*.
+
+*Normal equations* arise in linear least squares methods and are linear equations of the
+form `A*x = b` where `x` denotes the unknowns while `A` and `b` are respectively the
+*left-hand side* (LHS) matrix and *right-hand side* (RHS) vector of the *normal equations*.
+An `AbstractNormalEquations` object stores the coefficients of `A` and `b`.
+
+See also: [`StaticNormalEquations`](@ref), [`MutableNormalEquations`](@ref).
 
 """
 abstract type AbstractNormalEquations end
 
 """
-   StaticNormalEquations{N}
+    StaticNormalEquations{N}
 
-Abstract super-type of static (i.e. immutable) objects storing the coefficients of the
-*normal equations*. For an object `eqs` of this kind, the coefficients of the normal
-equations are typically updated by:
+Abstract super-type of static (i.e., immutable) objects storing the coefficients of *normal
+equations* with `N` unknowns.
+
+The coefficients stored by an object `eqs` of this kind are typically updated by:
 
 ```julia
 eqs = update(eqs, args...; kwds..)
 ```
 
-Parameter `N` is the number of unknowns.
+See also: [`update`](@ref), [`AbstractNormalEquations`](@ref).
 
 """
 abstract type StaticNormalEquations{N} <: AbstractNormalEquations end
 
 """
-   MutableNormalEquations
+    MutableNormalEquations
 
-Abstract super-type of mutable objects storing the coefficients of the *normal equations*.
-For an object `eqs` of this kind, the coefficients of the normal equations are typically
-updated by:
+Abstract super-type of mutable objects storing the coefficients of *normal equations*.
+
+The coefficients stored by an object `eqs` of this kind are typically updated by:
 
 ```julia
 update!(eqs, args...; kwds..)
 ```
+
+See also: [`update!`](@ref), [`AbstractNormalEquations`](@ref).
 
 """
 abstract type MutableNormalEquations <: AbstractNormalEquations end
@@ -126,59 +140,57 @@ abstract type MutableNormalEquations <: AbstractNormalEquations end
 """
     eqs = update(eqs::StaticAbstractEquations, args...; kwds...)
 
-Return the updated normal equations in `eqs`. The result is another immutable object than
-`eqs`.
+Return an immutable object of same type as `eqs` and storing normal equations updated with
+respect to those of `eqs`.
+
+See also: [`StaticNormalEquations`](@ref).
 
 """
-function update(eqs::StaticNormalEquations, args...; kwds...) end
+update(eqs::StaticNormalEquations, args...; kwds...)
 
 """
     update!(eqs::MutableAbstractEquations, args...; kwds...) -> eqs
 
-Update the normal equations in `eqs` in-place and return `eqs`.
+Update in-place the normal equations stored by `eqs` and return `eqs`.
+
+See also: [`MutableNormalEquations`](@ref).
 
 """
-function update!(eqs::MutableNormalEquations, args...; kwds...) end
+update!(eqs::MutableNormalEquations, args...; kwds...)
 
 """
     lhs_matrix(eqs::AbstractNormalEquations; readonly=false) -> A
 
-Return the *left-hand side* (LHS) matrix of the normal equations `eqs`.
+Return the *left-hand side* (LHS) matrix of the normal equations stored by `eqs`.
 
 Keyword `readonly` is to specify whether a read-only result is acceptable in which case `A`
 may be shared by `eqs` and the caller must not modify the content of `A`.
 
-# See also
-
-[`AbstractNormalEquations`](@ref) and [`rhs_vector`](@ref).
+See also: [`rhs_vector`](@ref) and [`AbstractNormalEquations`](@ref).
 
 """
-function lhs_matrix(eqs::AbstractNormalEquations; readonly::Bool=false) end
+lhs_matrix(eqs::AbstractNormalEquations; readonly::Bool=false)
 
 """
     rhs_vector(eqs::AbstractNormalEquations; readonly=false) -> b
 
-Return the *right-hand side* (RHS) vector of the normal equations `eqs`.
-
+Return the *right-hand side* (RHS) vector of the normal equations stored by `eqs`.
 
 Keyword `readonly` is to specify whether a read-only result is acceptable in which case `b`
 may be shared by `eqs` and the caller must not modify the content of `b`.
 
-# See also
-
-[`AbstractNormalEquations`](@ref) and [`lhs_matrix`](@ref).
+See also: [`lhs_matrix`](@ref) and [`AbstractNormalEquations`](@ref).
 
 """
-function rhs_vector(eqs::AbstractNormalEquations;  readonly::Bool=false) end
+rhs_vector(eqs::AbstractNormalEquations;  readonly::Bool=false)
 
 """
     solve(eqs::AbstractNormalEquations; kwds...) -> c
 
-Return the solution of the normal equations `eqs`. The content of `eqs` is left unchanged.
+Return the solution of the normal equations stored by `eqs` leaving the content of `eqs`
+unchanged.
 
-# See also
-
-[`solve!`](@ref).
+See also: [`solve!`](@ref) and [`AbstractNormalEquations`](@ref).
 
 """
 function solve(eqs::AbstractNormalEquations)
@@ -191,12 +203,17 @@ end
 """
     solve!(eqs::AbstractNormalEquations; kwds...) -> c
 
-Return the solution of the normal equations `eqs`. This may be faster than calling
-[`solve`](@ref) but the content of `eqs` may be destroyed which means that `eqs` may no
-longer be used by [`update`](@ref), [`solve`](@ref), or `solve!`.
+Return the solution of the normal equations stored by `eqs` possibly modifying or destroying
+the content of `eqs`.
+
+This may be faster than calling [`solve`](@ref) but the content of `eqs` may be changed with
+the consequence that `eqs` may no longer be used by other methods such as `update` and
+`solve`.
+
+See also: [`solve`](@ref), [`update`](@ref) and [`AbstractNormalEquations`](@ref).
 
 """
-function solve!(eqs::AbstractNormalEquations; kwds...) end
+solve!(eqs::AbstractNormalEquations; kwds...)
 
 """
     Indexable{T}
@@ -214,10 +231,11 @@ const Weight{T<:Real} = Union{T,typeof(ZERO),typeof(ONE)}
 """
     eqs = NormalEquations{N,T}(A, b)
 
-Return an immutable object `eqs` whose LHS matrix has packed coefficients given by `A` and
-RHS vector has coefficients given by `b`. `N` is the number of unknowns in the normal
-equations, it is also the length of `b`. `T` is the type of the coefficients stored by
-`eqs`. The number of packed coefficients in `A` is equal to `(N*(N + 1)) ÷ 2`.
+Return an immutable object `eqs` storing coefficients of type `T` for `N` normal equations
+whose LHS matrix has `(N*(N + 1)) ÷ 2` packed coefficients given by `A` and whose RHS vector
+has `N` coefficients given by `b`.
+
+See also: [`StaticNormalEquations`](@ref).
 
 """
 struct NormalEquations{N,T<:AbstractFloat,L} <: StaticNormalEquations{N}
@@ -241,12 +259,13 @@ Base.eltype(::Type{<:NormalEquations{N,T}}) where {N,T} = T
     eqs = NormalEquations{N,T}()
     eqs = zero(NormalEquations{N,T})
 
-Return an immutable object `eqs` with coefficients of type `T` of `N` normal equations.
-In the returned objects, all coefficients are `zero(T)`.
+Return an immutable object `eqs` storing coefficients of type `T` for `N` normal equations.
+In the returned object, all coefficients are set `zero(T)`.
 
-A typical usage of `eqs` is to update it by [`eqs = update(eqs, ...)`](@ref update) for each
-data and eventually call [`solve(eqs)`])(@ref solve) to compute the solution of the normal
-equations.
+A typical usage of `eqs` is to update it by `eqs = update(eqs, ...)` for each observation
+and eventually call `solve(eqs)` to compute the solution of the normal equations.
+
+See also: [`update`](@ref) and [`solve`](@ref).
 
 """
 NormalEquations{N,T}() where {N,T<:AbstractFloat} = zero(NormalEquations{N,T})
@@ -301,19 +320,25 @@ _update(val::T, adj::T) where {T<:Number} = val + adj
     eqs = update(eqs::NormalEquations, yₖ, fxₖ; weight=wₖ)
     eqs = update(eqs::NormalEquations, wₖ, yₖ, fxₖ)
 
-Update the coefficients of the normal equations stored by `eqs` for a new data value `yₖ`
-and corresponding components `fxₖ = (f₁(xₖ), f₂(xₖ), ...)` of the linear model. `fxₖ` is
-specified by the trailing arguments, by a tuple, or by a vector. In words, the assumed
-linear model is:
+Update the coefficients of the normal equations stored by `eqs` to account for a new
+observed value `yₖ` and corresponding components `fxₖ` of the linear model specified by the
+trailing arguments, by a tuple, or by a vector.
+
+Assuming the linear model is:
 
 ```
 yₖ ≈ c₁⋅f₁(xₖ) + c₂⋅f₂(xₖ) + ...
 ```
 
-for some unknown parameters `c = (c₁, c₂, ...)`.
+for some unknown parameters `c = (c₁, c₂, ...)` and independent variable `xₖ`, then `fxₖ =
+(f₁(xₖ), f₂(xₖ), ...)`.
 
-Keyword `weight` is to specify a statistical weight `wₖ` for `yₖ`. Typically, the weight is the
-reciprocal of the variance of `yₖ`. If not specified, `weight=𝟙` is assumed.
+Keyword `weight` is to specify a statistical weight `wₖ` for `yₖ`. Typically, the weight is
+the reciprocal of the variance of `yₖ`. If not specified, `weight=𝟙` is assumed.
+
+!!! note
+    This method for updating the normal equations assumes that the observations are mutually
+    independent although they may have unequal precision.
 
 For convenience, `fxₖ` can also be specified as a tuple of model functions followed by the
 independent variable `xₖ`:
@@ -326,6 +351,8 @@ eqs = update(eqs, wₖ, yₖ, (f₁, f₂, ...), xₖ) # equivalent
 which are both the same as specifying `fxₖ` as `(f₁(xₖ), f₂(xₖ), ...)` or, if `xₖ` is a
 tuple, as `(f₁(xₖ...), f₂(xₖ...), ...)`. For type inference, it is purposely not supported
 to have a vector of model functions, they must be provided by a tuple.
+
+See also: [`solve`](@ref), [`NormalEquations`](@ref).
 
 """
 update(eqs::NormalEquations, y::Real, fx::Real...; weight::Real=ONE) = update(eqs, weight, y, fx)
