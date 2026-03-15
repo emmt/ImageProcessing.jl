@@ -228,8 +228,8 @@ struct NormalEquations{N,T<:AbstractFloat,L} <: StaticNormalEquations{N}
     # Return instantiated equations.
     @inline function NormalEquations{N,T}(A::NTuple{L,Real},
                                           b::NTuple{N,Real}) where {N,T<:AbstractFloat,L}
-        L == packed_symmetrix_length(N) || throw(DimensionMismatch(
-            "expecting $(packed_symmetrix_length(N)) packed coefficient(s) for `A`, got `$L`"))
+        L == packed_symmetric_length(N) || throw(DimensionMismatch(
+            "expecting $(packed_symmetric_length(N)) packed coefficient(s) for `A`, got `$L`"))
         return new{N,T,L}(A, b)
     end
 end
@@ -256,31 +256,31 @@ Base.zero(eqs::NormalEquations) = zero(typeof(eqs))
 function Base.zero(::Type{NormalEquations{N,T,L}}) where {N,T,L}
     N::Int
     L::Int
-    L == packed_symmetrix_length(N) || throw(DimensionMismatch(
-        "with `N=$N`, expecting `L=$(packed_symmetrix_length(N))`, got `L=$L`"))
+    L == packed_symmetric_length(N) || throw(DimensionMismatch(
+        "with `N=$N`, expecting `L=$(packed_symmetric_length(N))`, got `L=$L`"))
     return zero(NormalEquations{N,T})
 end
 
 @inline function Base.zero(::Type{NormalEquations{N,T}}) where {N,T}
     N::Int
-    A = ntuple(Returns(zero(T)), Val(packed_symmetrix_length(N)))
+    A = ntuple(Returns(zero(T)), Val(packed_symmetric_length(N)))
     b = ntuple(Returns(zero(T)), Val(N))
     return NormalEquations{N,T}(A, b)
 end
 
 """
-    k = packed_symmetrix_index(i::Int, j::Int, n::Int)
+    k = packed_symmetric_index(i::Int, j::Int, n::Int)
 
 Return the index of element `A[i,j]` for a symmetric matrix in packed storage. All indices
-are 1-based.
+are assumed to be `1`-based.
 
 """
-function packed_symmetrix_index(i::Int, j::Int, n::Int)
+function packed_symmetric_index(i::Int, j::Int, n::Int)
     i, j = minmax(i, j)
     return div((2n - i)*(i - 1), 2) + j
 end
 
-packed_symmetrix_length(n::Int) = div(n*(n + 1), 2)
+packed_symmetric_length(n::Int) = div(n*(n + 1), 2)
 
 """
     eqs = update(eqs::NormalEquations, ΔA, Δb)
@@ -415,7 +415,7 @@ end
     A = Expr(:tuple)
     for i in 1:N
         for j in 1:N
-            k = packed_symmetrix_index(i, j, N)
+            k = packed_symmetric_index(i, j, N)
             push!(A.args, :(eqs.A[$k]))
         end
     end
