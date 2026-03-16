@@ -47,8 +47,8 @@ end
     c0 = (-2.25, 0.50)
     n = length(fns)
     X = -1.0:0.125:2.0
-    eqs = @inferred NormalEquations{n,Float64}()
-    @test eqs isa NormalEquations{n,Float64}
+    eqs = @inferred StaticNormalEquations{n,Float64}()
+    @test eqs isa StaticNormalEquations{n,Float64}
     @test @inferred(eltype(eqs)) === Float64
     A = @inferred lhs_matrix(eqs; readonly=false)
     b = @inferred rhs_vector(eqs; readonly=false)
@@ -56,6 +56,8 @@ end
     @test size(b) == (n,)
     @test all(iszero, A)
     @test all(iszero, b)
+    @test applicable(update!, eqs)
+    @test_throws Exception update!(eqs)
     for x in X
         fx = mcall(fns, x)
         y = mdot(c0, fx)
@@ -65,10 +67,10 @@ end
     @test collect(c) ≈ collect(c0)
     # idem with weights
     eqs1 = @inferred zero(eqs)
-    @test eqs1 === @inferred NormalEquations{n,eltype(eqs)}()
-    @test eqs1 === @inferred NormalEquations{n,eltype(eqs),(n*(n+1))>>1}()
-    @test_throws Exception NormalEquations{n,Int16}() # T must be floating-point
-    @test_throws Exception NormalEquations{n,Float32,1}() # invalid L
+    @test eqs1 === @inferred StaticNormalEquations{n,eltype(eqs)}()
+    @test eqs1 === @inferred StaticNormalEquations{n,eltype(eqs),(n*(n+1))>>1}()
+    @test_throws Exception StaticNormalEquations{n,Int16}() # T must be floating-point
+    @test_throws Exception StaticNormalEquations{n,Float32,1}() # invalid L
     # weights must be finite and non-negative
     @test_throws ArgumentError update(eqs1, -1.0, 1.0, (2.0, 3.0))
     @test_throws ArgumentError update(eqs1, Inf, 1.0, (2.0, 3.0))
@@ -92,7 +94,7 @@ end
     @test collect(c1) ≈ collect(c0)
     @test collect(c2) ≈ collect(c0)
     # Same fit but with list of functions.
-    eqs = @inferred zero(NormalEquations{length(fns),Float64})
+    eqs = @inferred zero(StaticNormalEquations{length(fns),Float64})
     @test_throws DimensionMismatch update(eqs, 1.0, (fns..., identity), 0.0) # too many functions
     @test_throws DimensionMismatch update(eqs, 1.0, fns[2:end], 0.0) # too few functions
     for x in X
@@ -107,8 +109,8 @@ end
     c0 = (-7.25, -2.50, 3.75)
     n = length(fns)
     X = -1.0:0.125:2.0
-    eqs = @inferred NormalEquations{n,Float32}()
-    @test eqs isa NormalEquations{n,Float32}
+    eqs = @inferred StaticNormalEquations{n,Float32}()
+    @test eqs isa StaticNormalEquations{n,Float32}
     @test @inferred(eltype(eqs)) === Float32
     A = @inferred lhs_matrix(eqs; readonly=false)
     b = @inferred rhs_vector(eqs; readonly=false)
@@ -124,7 +126,7 @@ end
     c = @inferred solve(eqs)
     @test collect(c) ≈ collect(c0)
     # Same fit but with a tuple of functions.
-    eqs = @inferred zero(NormalEquations{length(fns),Float32})
+    eqs = @inferred zero(StaticNormalEquations{length(fns),Float32})
     for x in X
         y = mdot(c0, mcall(fns, x))
         eqs = @inferred update(eqs, y, fns, x)

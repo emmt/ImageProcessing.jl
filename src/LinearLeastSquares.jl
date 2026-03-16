@@ -45,20 +45,35 @@ array `Y` with corresponding independent variables in array `X` of same shape as
 can be done by:
 
 ```julia
-eqs = NormalEquations{3,Float64}() # instantiate normal equations for 3 unknowns
+eqs = StaticNormalEquations{3,Float64}() # instantiate normal equations for 3 unknowns
 for (x, y) in zip(X, Y)
     eqs = update(eqs, y, (1.0, x, sin(x)))
 end
 c = solve(eqs)
 ```
 
-It is also possible to directly specify a list of model functions in `update`.
+In this example, we use `StaticNormalEquations` because the number of unknowns, here 3, is a
+known small constant. It is also possible to directly specify a list of model functions in
+`update`:
 
 ```julia
-fns = (x -> 1.0, identity, sin)
-eqs = NormalEquations{length(fns),Float64}()
+fns = (x -> 1.0, identity, sin) # tuple of model functions
+eqs = StaticNormalEquations{length(fns),Float64}()
 for (x, y) in zip(X, Y)
     eqs = update(eqs, y, fns, x)
+end
+c = solve(eqs)
+```
+
+The 2 preceding examples assume that all observations have the same importance. Otherwise,
+assuming available an array `W` of weights of same shape as `Y`, the code for estimating the
+parameters writes:
+
+```julia
+fns = (x -> 1.0, identity, sin) # tuple of model functions
+eqs = StaticNormalEquations{length(fns),Float64}()
+for (w, x, y) in zip(W, X, Y)
+    eqs = update(eqs, y, fns, x; weight=w) # or update(eqs, w, y, fns, x)
 end
 c = solve(eqs)
 ```
@@ -68,11 +83,11 @@ module LinearLeastSquares
 
 export
     AbstractNormalEquations,
-    StaticNormalEquations,
+    ImmutableNormalEquations,
     MutableNormalEquations,
-    NormalEquations,
-    rhs_vector,
+    StaticNormalEquations,
     lhs_matrix,
+    rhs_vector,
     solve,
     solve!,
     update,
@@ -99,13 +114,13 @@ form `A*x = b` where `x` denotes the unknowns while `A` and `b` are respectively
 *left-hand side* (LHS) matrix and *right-hand side* (RHS) vector of the *normal equations*.
 An `AbstractNormalEquations` object stores the coefficients of `A` and `b`.
 
-See also: [`StaticNormalEquations`](@ref), [`MutableNormalEquations`](@ref).
+See also: [`ImmutableNormalEquations`](@ref), [`MutableNormalEquations`](@ref).
 
 """
 abstract type AbstractNormalEquations end
 
 """
-    StaticNormalEquations{N}
+    ImmutableNormalEquations{N}
 
 Abstract super-type of static (i.e., immutable) objects storing the coefficients of *normal
 equations* with `N` unknowns.
@@ -119,7 +134,7 @@ eqs = update(eqs, args...; kwds..)
 See also: [`update`](@ref), [`AbstractNormalEquations`](@ref).
 
 """
-abstract type StaticNormalEquations{N} <: AbstractNormalEquations end
+abstract type ImmutableNormalEquations{N} <: AbstractNormalEquations end
 
 """
     MutableNormalEquations
@@ -143,10 +158,15 @@ abstract type MutableNormalEquations <: AbstractNormalEquations end
 Return an immutable object of same type as `eqs` and storing normal equations updated with
 respect to those of `eqs`.
 
-See also: [`StaticNormalEquations`](@ref).
+See also: [`ImmutableNormalEquations`](@ref).
 
 """
-update(eqs::StaticNormalEquations, args...; kwds...)
+update(eqs::AbstractNormalEquations, args...; kwds...)
+
+# `update` shall only be implemented for immutable objects.
+update(eqs::MutableNormalEquations, args...; kwds...) = error(
+    "`update` is purposely not implemented for mutable objects of type `",
+    typeof(eqs), "`, call `update!` instead")
 
 """
     update!(eqs::MutableAbstractEquations, args...; kwds...) -> eqs
@@ -156,7 +176,12 @@ Update in-place the normal equations stored by `eqs` and return `eqs`.
 See also: [`MutableNormalEquations`](@ref).
 
 """
-update!(eqs::MutableNormalEquations, args...; kwds...)
+update!(eqs::AbstractNormalEquations, args...; kwds...)
+
+# `update!` shall only be implemented for mutable objects.
+update!(eqs::ImmutableNormalEquations, args...; kwds...) = error(
+    "`update!` is purposely not implemented for static objects of type `",
+    typeof(eqs), "`, call `update` instead")
 
 """
     lhs_matrix(eqs::AbstractNormalEquations; readonly=false) -> A
@@ -226,25 +251,30 @@ const Indexable{T} = Union{AbstractVector{T},Tuple{Vararg{T}}}
 const Value{T<:Real} = Union{T,Neutral}
 const Weight{T<:Real} = Union{T,typeof(ZERO),typeof(ONE)}
 
-#------------------------------------------------ NormalEquations: Static normal equations -
+#----------------------------------------------------------------- Static normal equations -
 
 """
-    eqs = NormalEquations{N,T}(A, b)
+    eqs = StaticNormalEquations{N,T}(A, b)
 
 Return an immutable object `eqs` storing coefficients of type `T` for `N` normal equations
 whose LHS matrix has `(N*(N + 1)) ÷ 2` packed coefficients given by `A` and whose RHS vector
 has `N` coefficients given by `b`.
 
-See also: [`StaticNormalEquations`](@ref).
+If parameter `T`, the type of the coefficients` is not specified, it is inferred from the
+types of the elements of `A` and `b`.
+
+`A` and `b` may be tuples or vectors. If `b` is a tuple, then parameter `N` may be omitted.
+
+See also: [`ImmutableNormalEquations`](@ref).
 
 """
-struct NormalEquations{N,T<:AbstractFloat,L} <: StaticNormalEquations{N}
+struct StaticNormalEquations{N,T<:AbstractFloat,L} <: ImmutableNormalEquations{N}
     # The coefficients of the LHS matrix are packed but can be in row-major or column-major
     # order.
     A::NTuple{L,T} # packed coefficients of the LHS matrix
     b::NTuple{N,T} # coefficients of the RHS vector
     # Return instantiated equations.
-    @inline function NormalEquations{N,T}(A::NTuple{L,Real},
+    @inline function StaticNormalEquations{N,T}(A::NTuple{L,Real},
                                           b::NTuple{N,Real}) where {N,T<:AbstractFloat,L}
         L == packed_symmetric_length(N) || throw(DimensionMismatch(
             "expecting $(packed_symmetric_length(N)) packed coefficient(s) for `A`, got `$L`"))
@@ -252,12 +282,36 @@ struct NormalEquations{N,T<:AbstractFloat,L} <: StaticNormalEquations{N}
     end
 end
 
-Base.eltype(eqs::NormalEquations) = eltype(typeof(eqs))
-Base.eltype(::Type{<:NormalEquations{N,T}}) where {N,T} = T
+function StaticNormalEquations(A::Indexable{<:Real}, b::NTuple{N,Real}) where {N}
+    return StaticNormalEquations{N}(A, b)
+end
+
+function StaticNormalEquations{N}(A::Indexable{<:Real}, b::Indexable{<:Real}) where {N}
+    T = float(promote_type(eltype(A), eltype(b)))
+    return StaticNormalEquations{N,T}(A, b)
+end
+
+function StaticNormalEquations{N,T}(A::Indexable{<:Real}, b::Indexable{<:Real}) where {N,T}
+    N::Int
+    L = packed_symmetric_length(N)
+    return StaticNormalEquations{N,T}(to(NTuple{L,T}, A), to(NTuple{N,T}, b))
+end
+
+Base.eltype(eqs::StaticNormalEquations) = eltype(typeof(eqs))
+Base.eltype(::Type{<:StaticNormalEquations{N,T}}) where {N,T} = T
+
+to(::Type{NTuple{N,T}}, x::NTuple{N,T}) where {N,T} = x
+to(::Type{NTuple{N,T}}, x::NTuple{N}) where {N,T} = convert(NTuple{N,T}, x)::NTuple{N,T}
+function to(::Type{NTuple{N,T}}, x::Indexable) where {N,T}
+    length(x) == N || throw(DimensionMismatch(
+        "cannot convert $(length(x))-element object of type `$(typeof(x))` into an `$N`-tuple"))
+    off = firstindex(x) - 1
+    return ntuple(i -> convert(T, @inbounds(x[off + i])), Val(N))::NTuple{N,T}
+end
 
 """
-    eqs = NormalEquations{N,T}()
-    eqs = zero(NormalEquations{N,T})
+    eqs = StaticNormalEquations{N,T}()
+    eqs = zero(StaticNormalEquations{N,T})
 
 Return an immutable object `eqs` storing coefficients of type `T` for `N` normal equations.
 In the returned object, all coefficients are set `zero(T)`.
@@ -268,23 +322,23 @@ and eventually call `solve(eqs)` to compute the solution of the normal equations
 See also: [`update`](@ref) and [`solve`](@ref).
 
 """
-NormalEquations{N,T}() where {N,T<:AbstractFloat} = zero(NormalEquations{N,T})
-NormalEquations{N,T,L}() where {N,T<:AbstractFloat,L} = zero(NormalEquations{N,T,L})
+StaticNormalEquations{N,T}() where {N,T<:AbstractFloat} = zero(StaticNormalEquations{N,T})
+StaticNormalEquations{N,T,L}() where {N,T<:AbstractFloat,L} = zero(StaticNormalEquations{N,T,L})
 
-Base.zero(eqs::NormalEquations) = zero(typeof(eqs))
-function Base.zero(::Type{NormalEquations{N,T,L}}) where {N,T,L}
+Base.zero(eqs::StaticNormalEquations) = zero(typeof(eqs))
+function Base.zero(::Type{StaticNormalEquations{N,T,L}}) where {N,T,L}
     N::Int
     L::Int
     L == packed_symmetric_length(N) || throw(DimensionMismatch(
         "with `N=$N`, expecting `L=$(packed_symmetric_length(N))`, got `L=$L`"))
-    return zero(NormalEquations{N,T})
+    return zero(StaticNormalEquations{N,T})
 end
 
-@inline function Base.zero(::Type{NormalEquations{N,T}}) where {N,T}
+@inline function Base.zero(::Type{StaticNormalEquations{N,T}}) where {N,T}
     N::Int
     A = ntuple(Returns(zero(T)), Val(packed_symmetric_length(N)))
     b = ntuple(Returns(zero(T)), Val(N))
-    return NormalEquations{N,T}(A, b)
+    return StaticNormalEquations{N,T}(A, b)
 end
 
 """
@@ -302,23 +356,23 @@ end
 packed_symmetric_length(n::Int) = div(n*(n + 1), 2)
 
 """
-    eqs = update(eqs::NormalEquations, ΔA, Δb)
+    eqs = update(eqs::StaticNormalEquations, ΔA, Δb)
 
 Return the normal equations in `eqs` with the the LHS matrix incremented by `ΔA` and the RHS
 vector incremented by `Δb`.
 
 """
-update(eqs::NormalEquations{N,T,L}, A::NTuple{L,Real}, b::NTuple{N,Real}) where {N,T,L} =
-    NormalEquations{N,T}(map(_update, eqs.A, A), map(_update, eqs.b, b))
+update(eqs::StaticNormalEquations{N,T,L}, A::NTuple{L,Real}, b::NTuple{N,Real}) where {N,T,L} =
+    StaticNormalEquations{N,T}(map(_update, eqs.A, A), map(_update, eqs.b, b))
 
 # Add an increment to a value, preserving the type of the value.
 _update(val::T, adj::Number) where {T<:Number} = (val + lazy_convert(T, adj))::T
 _update(val::T, adj::T) where {T<:Number} = val + adj
 
 """
-    eqs = update(eqs::NormalEquations, yₖ, fxₖ...; weight=wₖ)
-    eqs = update(eqs::NormalEquations, yₖ, fxₖ; weight=wₖ)
-    eqs = update(eqs::NormalEquations, wₖ, yₖ, fxₖ)
+    eqs = update(eqs::StaticNormalEquations, yₖ, fxₖ...; weight=wₖ)
+    eqs = update(eqs::StaticNormalEquations, yₖ, fxₖ; weight=wₖ)
+    eqs = update(eqs::StaticNormalEquations, wₖ, yₖ, fxₖ)
 
 Update the coefficients of the normal equations stored by `eqs` to account for a new
 observed value `yₖ` and corresponding components `fxₖ` of the linear model specified by the
@@ -352,20 +406,22 @@ which are both the same as specifying `fxₖ` as `(f₁(xₖ), f₂(xₖ), ...)`
 tuple, as `(f₁(xₖ...), f₂(xₖ...), ...)`. For type inference, it is purposely not supported
 to have a vector of model functions, they must be provided by a tuple.
 
-See also: [`solve`](@ref), [`NormalEquations`](@ref).
+See also: [`solve`](@ref), [`StaticNormalEquations`](@ref).
 
 """
-update(eqs::NormalEquations, y::Real, fx::Real...; weight::Real=ONE) = update(eqs, weight, y, fx)
-update(eqs::NormalEquations, y::Real, fx::Indexable{<:Real}; weight::Real=ONE) =
+update(eqs::StaticNormalEquations, y::Real, fx::Real...; weight::Real=ONE) =
     update(eqs, weight, y, fx)
 
-function update(eqs::NormalEquations{N,T}, w::Union{Real,Neutral{1}}, y::Real,
+update(eqs::StaticNormalEquations, y::Real, fx::Indexable{<:Real}; weight::Real=ONE) =
+    update(eqs, weight, y, fx)
+
+function update(eqs::StaticNormalEquations{N,T}, w::Union{Real,Neutral{1}}, y::Real,
                 fx::NTuple{N,Real}) where {N,T<:AbstractFloat}
     # NOTE to speed-up some computations, neutrals are kept in `fx`
     return update(eqs, lazy_convert(T, w), convert(T, y), map(lazy_convert(T), fx))
 end
 
-function update(eqs::NormalEquations{N,T}, w::Union{Real,Neutral{1}}, y::Real,
+function update(eqs::StaticNormalEquations{N,T}, w::Union{Real,Neutral{1}}, y::Real,
                 fx::Indexable{<:Real}) where {N,T<:AbstractFloat}
     length(fx) == N || throw(DimensionMismatch(
         "expecting $N model component(s) in `fx`, got $(length(fx))"))
@@ -375,7 +431,7 @@ function update(eqs::NormalEquations{N,T}, w::Union{Real,Neutral{1}}, y::Real,
                   ntuple(i -> convert(T, @inbounds(fx[off + i])), Val(N)))
 end
 
-@generated function update(eqs::NormalEquations{N,T}, w::Weight{T}, y::T,
+@generated function update(eqs::StaticNormalEquations{N,T}, w::Weight{T}, y::T,
                            # NOTE to speed-up some operations, `fx` may contain neutrals
                            fx::NTuple{N,Value{T}}) where {N,T<:AbstractFloat}
     init = Expr[]
@@ -394,7 +450,7 @@ end
     return quote
         if isfinite(w) && w > zero(w)
             $(init...)
-            return NormalEquations{N,T}($(A), $(b))
+            return StaticNormalEquations{N,T}($(A), $(b))
         elseif iszero(w)
             return eqs
         else
@@ -408,11 +464,11 @@ end
 
 # Model components specified as a tuple (or vector) of function followed by the independent
 # variable.
-function update(eqs::NormalEquations{N,T}, y::Real,
+function update(eqs::StaticNormalEquations{N,T}, y::Real,
                 fns::Tuple{Vararg{Function}}, x; weight::Real=ONE) where {N,T<:AbstractFloat}
     return update(eqs, weight, y, fns, x)
 end
-function update(eqs::NormalEquations{N,T}, w::Real, y::Real,
+function update(eqs::StaticNormalEquations{N,T}, w::Real, y::Real,
                 fns::Tuple{Vararg{Function}}, x) where {N,T<:AbstractFloat}
     return update(eqs, w, y, mcall(NTuple{N,T}, fns, x))
 end
@@ -438,7 +494,7 @@ function mcall(::Type{NTuple{N,T}},
     return ntuple(i -> @inbounds(_mcall(T, fns, i, x)), Val(N))::NTuple{N,T}
 end
 
-@generated function lhs_matrix(eqs::NormalEquations{N,T}; readonly::Bool=false) where {N,T}
+@generated function lhs_matrix(eqs::StaticNormalEquations{N,T}; readonly::Bool=false) where {N,T}
     A = Expr(:tuple)
     for i in 1:N
         for j in 1:N
@@ -451,10 +507,10 @@ end
     end
 end
 
-rhs_vector(eqs::NormalEquations{N,T}; readonly::Bool=false) where {N,T} =
+rhs_vector(eqs::StaticNormalEquations{N,T}; readonly::Bool=false) where {N,T} =
     SVector{N,T}(eqs.b)
 
-solve!(eqs::NormalEquations) = solve(eqs)
+solve!(eqs::StaticNormalEquations) = solve(eqs)
 
 """
     LinearLeastSquares.lazy_convert(T, x) -> x′
