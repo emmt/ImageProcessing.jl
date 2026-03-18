@@ -509,6 +509,79 @@ build(::Type{CartesianIndices}, start::CartesianIndex{N}, stop::CartesianIndex{N
             @test_throws Exception CartesianIndices(B)
         end
     end
+
+    @testset "Patches" begin
+        @test_throws Exception ImagePatch(Val(:non_existing_form), (4, 3))
+        # 2-dimensional rectangular patches.
+        A = @inferred ImagePatch{Float32,2}(Val(:rectangular), 3)
+        @test A isa ImagePatch{Float32,2}
+        @test A.mask isa AbstractArray{Bool,2}
+        @test A.origin isa Point{2,Float32}
+        @test ndims(A) == 2
+        @test size(A.mask) == (3, 3)
+        @test axes(A.mask) == (1:3, 1:3)
+        @test all(A.mask)
+        @test A.origin == Point(map(r -> (first(r) + last(r))/2, axes(A.mask)))
+        @test @inferred(ImagePatch(A)) === A
+        @test @inferred(ImagePatch{Float32}(A)) === A
+        @test @inferred(ImagePatch{Float32,2}(A)) === A
+        @test @inferred(ImagePatch{Float32,2,typeof(A.mask)}(A)) === A
+        @test @inferred(convert(ImagePatch, A)) === A
+        @test @inferred(convert(ImagePatch{Float32}, A)) === A
+        @test @inferred(convert(ImagePatch{Float32,2}, A)) === A
+        @test @inferred(convert(ImagePatch{Float32,2,typeof(A.mask)}, A)) === A
+        @test @inferred(get_precision(A)) === Float32
+        B = @inferred adapt_precision(Float64, A)
+        @test B isa ImagePatch{Float64,2}
+        @test B.origin isa Point{2,Float64}
+        @test B.mask === A.mask
+        @test B.origin == A.origin
+        @test @inferred(get_precision(B)) === Float64
+        @test @inferred(ImagePatch{Float64}(A)) === B
+        @test @inferred(convert(ImagePatch{Float64}, A)) === B
+
+        # 3-dimensional rectangular patches with offsets.
+        A = @inferred ImagePatch(Val(:rectangular), -1:1, 3, -2:1)
+        @test A isa ImagePatch{Float64,3}
+        @test ndims(A) == 3
+        @test @inferred(get_precision(A)) === Float64
+        @test A.mask isa AbstractArray{Bool,3}
+        @test A.origin isa Point{3,Float64}
+        @test size(A.mask) == (3, 3, 4)
+        @test axes(A.mask) == (-1:1, 1:3, -2:1)
+        @test all(A.mask)
+        @test A.origin == Point(map(r -> (first(r) + last(r))/2, axes(A.mask)))
+        B = @inferred adapt_precision(Float32, A)
+        @test B isa ImagePatch{Float32,3}
+        @test B.mask === A.mask
+        @test B.origin isa Point{3,Float32}
+        @test B.origin == A.origin
+        @test @inferred(ImagePatch{Float32}(A)) === B
+        @test @inferred(convert(ImagePatch{Float32}, A)) === B
+
+        # 2-dimensional circular patches.
+        A = @inferred ImagePatch(Val(:circular), (5, 4))
+        @test A isa ImagePatch{Float64,2}
+        @test ndims(A) == 2
+        @test @inferred(get_precision(A)) === Float64
+        @test A.mask isa AbstractArray{Bool,2}
+        @test A.origin isa Point{2,Float64}
+        @test size(A.mask) == (5, 4)
+        @test axes(A.mask) == (1:5, 1:4)
+        @test !all(A.mask)
+        @test first(A.mask) === false
+        @test last(A.mask) === false
+        @test A.origin == Point(map(r -> (first(r) + last(r))/2, axes(A.mask)))
+        B = @inferred ImagePatch{Float64,3}(Val(:circular), 5)
+        C = @inferred ImagePatch{Float64,3}(Val(:circular), Base.OneTo(5))
+        @test typeof(B) == typeof(C)
+        @test ndims(B) == 3
+        @test ndims(C) == 3
+        @test B != A
+        @test B == C
+        @test !isequal(B, A)
+        @test isequal(B, C)
+    end
 end
 
 include("LinearLeastSquaresTests.jl")

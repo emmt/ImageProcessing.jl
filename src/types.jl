@@ -137,6 +137,14 @@ const BoundingBoxLike{N} = Union{BoundingBox{N},CartesianIndices{N},NTuple{N,Int
 const ContiguousCartesianIndices{N} =
     CartesianIndices{N,<:NTuple{N,AbstractUnitRange{<:Integer}}}
 
+struct ImagePatch{T,N,A<:AbstractArray{Bool,N}}
+    mask::A
+    origin::Point{N,T}
+    function ImagePatch{T}(mask::A, origin::Point{N}) where {T,N,A<:AbstractArray{Bool,N}}
+        return new{T,N,A}(mask, origin)
+    end
+end
+
 struct OnlineSum{T,N,A<:AbstractArray{<:Any,N},B<:AbstractArray{<:Any,N}}
     den::A # array to store the integrated denominator
     num::B # array to store the integrated numerator

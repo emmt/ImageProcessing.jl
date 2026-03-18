@@ -4,6 +4,7 @@ export
     AbstractPoint,
     BoundingBox,
     BoundingBoxLike,
+    ImagePatch,
     Interval,
     IntervalLike,
     OnlineSum,
@@ -41,11 +42,12 @@ using Backport
 using EasyRanges
 using InterpolationKernels
 using LinearAlgebra
+using Neutrals
 using OffsetArrays
+using Reexport
 using Statistics
 using StructuredArrays
 using TypeUtils
-using Reexport
 
 using EasyRanges: ranges
 using Base: @propagate_inbounds, Fix1, Fix2
@@ -59,6 +61,7 @@ include("intervals.jl")
 include("points.jl")
 include("boxes.jl")
 include("arithmetic.jl")
+include("patches.jl")
 include("centroiding.jl")
 include("onlinesum.jl")
 
