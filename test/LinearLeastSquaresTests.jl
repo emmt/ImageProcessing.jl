@@ -42,6 +42,37 @@ end
     @test    ONE === @inferred c( ONE)
     @test   -ONE === @inferred c(-ONE)
 
+    # Constructors for writable normal equations.
+    eqs = @inferred NormalEquations{Float32}(-1:3, 2)
+    @test eqs.b isa AbstractArray{Float32,2}
+    @test eqs.A isa AbstractVector{Float32}
+    @test eqs isa NormalEquations{Float32,typeof(eqs.A),typeof(eqs.b)}
+    @test axes(eqs.b) == (-1:3, 1:2)
+    n = length(eqs.b)
+    @test length(eqs.A) == (n*(n + 1)) >> 1
+    @test all(iszero, eqs.b)
+    @test all(iszero, eqs.A)
+    @test @inferred(rhs_vector(eqs)) == eqs.b
+    for i in eachindex(IndexLinear(), eqs.b)
+        eqs.b[i] = i
+    end
+    for i in eachindex(IndexLinear(), eqs.A)
+        eqs.A[i] = i
+    end
+    # create another object sharing its content
+    eqs2 = @inferred NormalEquations(eqs.A, eqs.b)
+    @test eqs2.A === eqs.A
+    @test eqs2.b === eqs.b
+    # create a copy with more precision
+    eqs3 = @inferred NormalEquations{Float64}(eqs.A, eqs.b)
+    @test eqs3.b isa AbstractArray{Float64,2}
+    @test eqs3.A isa AbstractVector{Float64}
+    @test eqs3.A == eqs.A
+    @test eqs3.b == eqs.b
+    zerofill!(eqs3)
+    @test all(iszero, eqs3.b)
+    @test all(iszero, eqs3.A)
+
     # Fit a straight line.
     fns = (x -> 1.0, x -> x)
     c0 = (-2.25, 0.50)
@@ -50,8 +81,8 @@ end
     eqs = @inferred StaticNormalEquations{n,Float64}()
     @test eqs isa StaticNormalEquations{n,Float64}
     @test @inferred(eltype(eqs)) === Float64
-    A = @inferred lhs_matrix(eqs; readonly=false)
-    b = @inferred rhs_vector(eqs; readonly=false)
+    A = @inferred lhs_matrix(eqs)
+    b = @inferred rhs_vector(eqs)
     @test size(A) == (n, n)
     @test size(b) == (n,)
     @test all(iszero, A)
@@ -112,8 +143,8 @@ end
     eqs = @inferred StaticNormalEquations{n,Float32}()
     @test eqs isa StaticNormalEquations{n,Float32}
     @test @inferred(eltype(eqs)) === Float32
-    A = @inferred lhs_matrix(eqs; readonly=false)
-    b = @inferred rhs_vector(eqs; readonly=false)
+    A = @inferred lhs_matrix(eqs)
+    b = @inferred rhs_vector(eqs)
     @test size(A) == (n, n)
     @test size(b) == (n,)
     @test all(iszero, A)

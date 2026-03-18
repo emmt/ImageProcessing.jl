@@ -87,13 +87,17 @@ export
     MutableNormalEquations,
     StaticNormalEquations,
     lhs_matrix,
+    lhs_matrix!,
     rhs_vector,
+    rhs_vector!,
     solve,
     solve!,
     update,
     update!
 
 using ..ImageProcessing
+
+using OffsetArrays
 using StaticArrays
 using LinearAlgebra
 using Neutrals
@@ -103,6 +107,17 @@ using Base: @propagate_inbounds
 TypeUtils.@public(lazy_convert)
 
 #------------------------------------------------------------------------------------- API -
+
+"""
+    Indexable{T}
+
+Type alias for indexable objects (i.e. tuples or vectors) with elements of type `T`.
+
+"""
+const Indexable{T} = Union{AbstractVector{T},Tuple{Vararg{T}}}
+
+const Value{T<:Real} = Union{T,Neutral}
+const Weight{T<:Real} = Union{T,typeof(ZERO),typeof(ONE)}
 
 """
     AbstractNormalEquations
@@ -184,30 +199,48 @@ update!(eqs::ImmutableNormalEquations, args...; kwds...) = error(
     typeof(eqs), "`, call `update` instead")
 
 """
-    lhs_matrix(eqs::AbstractNormalEquations; readonly=false) -> A
+    lhs_matrix(eqs::AbstractNormalEquations) -> A
 
-Return the *left-hand side* (LHS) matrix of the normal equations stored by `eqs`.
+Return the *left-hand side* (LHS) matrix of the normal equations stored by `eqs`. The result
+is independent from `eqs` and can be modified by the caller.
 
-Keyword `readonly` is to specify whether a read-only result is acceptable in which case `A`
-may be shared by `eqs` and the caller must not modify the content of `A`.
-
-See also: [`rhs_vector`](@ref) and [`AbstractNormalEquations`](@ref).
+See also: [`lhs_matrix!`](@ref), [`rhs_vector`](@ref), and [`AbstractNormalEquations`](@ref).
 
 """
-lhs_matrix(eqs::AbstractNormalEquations; readonly::Bool=false)
+lhs_matrix(eqs::AbstractNormalEquations)
 
 """
-    rhs_vector(eqs::AbstractNormalEquations; readonly=false) -> b
+    lhs_matrix!(A, eqs::AbstractNormalEquations) -> Symmetric(A)
 
-Return the *right-hand side* (RHS) vector of the normal equations stored by `eqs`.
+Overwrite `A` with the coefficients of the *left-hand side* (LHS) matrix of the normal
+equations stored by `eqs` and return a symmetric matrix stored in `A`.
 
-Keyword `readonly` is to specify whether a read-only result is acceptable in which case `b`
-may be shared by `eqs` and the caller must not modify the content of `b`.
-
-See also: [`lhs_matrix`](@ref) and [`AbstractNormalEquations`](@ref).
+See also: [`lhs_matrix`](@ref), [`rhs_vector!`](@ref), and [`AbstractNormalEquations`](@ref).
 
 """
-rhs_vector(eqs::AbstractNormalEquations;  readonly::Bool=false)
+lhs_matrix!(A::AbstractMatrix, eqs::AbstractNormalEquations)
+
+"""
+    rhs_vector(eqs::AbstractNormalEquations) -> b
+
+Return the *right-hand side* (RHS) vector of the normal equations stored by `eqs`. The
+result is independent from `eqs` and can be modified by the caller.
+
+See also: [`rhs_vector!`](@ref), [`lhs_matrix`](@ref), and [`AbstractNormalEquations`](@ref).
+
+"""
+rhs_vector(eqs::AbstractNormalEquations)
+
+"""
+    rhs_vector!(b, eqs::AbstractNormalEquations) -> b
+
+Overwrite `b` with the coefficients of the *right-hand side* (RHS) vector of the normal
+equations stored by `eqs` and return `b`. This is nearly the same as `copyto!(b, eqs.b)`.
+
+See also: [`rhs_vector`](@ref), [`lhs_matrix`](@ref), and [`AbstractNormalEquations`](@ref).
+
+"""
+rhs_vector!(b::AbstractMatrix, eqs::AbstractNormalEquations)
 
 """
     solve(eqs::AbstractNormalEquations; kwds...) -> c
@@ -218,38 +251,30 @@ unchanged.
 See also: [`solve!`](@ref) and [`AbstractNormalEquations`](@ref).
 
 """
-function solve(eqs::AbstractNormalEquations)
-    A = lhs_matrix(eqs)
-    b = rhs_vector(eqs)
-    # FIXME Use Cholesky decomposition for N not too small?
-    return A\b
-end
+solve(eqs::AbstractNormalEquations)
 
 """
-    solve!(eqs::AbstractNormalEquations; kwds...) -> c
+    solve!(x, eqs::ImmutableNormalEquations) -> x
+    solve!(x, eqs::MutableNormalEquations[, A]) -> x
 
-Return the solution of the normal equations stored by `eqs` possibly modifying or destroying
-the content of `eqs`.
+Overwrite `x` with the solution of the normal equations stored by `eqs` and return `x`.
 
-This may be faster than calling [`solve`](@ref) but the content of `eqs` may be changed with
-the consequence that `eqs` may no longer be used by other methods such as `update` and
-`solve`.
+For mutable normal equations:
+
+- Optional argument `A` is to provide temporary storage for the full left-hand side matrix
+  of the normal equations.
+
+- If it is acceptable that the content of `eqs` be destroyed and that `x` shares some
+  content of `eqs`, then it is possible to save allocating `x` by calling:
+
+  ```julia
+  x = solve!(eqs.b, eqs, A)
+  ```
 
 See also: [`solve`](@ref), [`update`](@ref) and [`AbstractNormalEquations`](@ref).
 
 """
-solve!(eqs::AbstractNormalEquations; kwds...)
-
-"""
-    Indexable{T}
-
-Type alias for indexable objects (i.e. tuples or vectors) with elements of type `T`.
-
-"""
-const Indexable{T} = Union{AbstractVector{T},Tuple{Vararg{T}}}
-
-const Value{T<:Real} = Union{T,Neutral}
-const Weight{T<:Real} = Union{T,typeof(ZERO),typeof(ONE)}
+solve!(x::AbstractArray, eqs::AbstractNormalEquations)
 
 #----------------------------------------------------------------- Static normal equations -
 
@@ -299,6 +324,9 @@ end
 
 Base.eltype(eqs::StaticNormalEquations) = eltype(typeof(eqs))
 Base.eltype(::Type{<:StaticNormalEquations{N,T}}) where {N,T} = T
+
+Base.length(eqs::StaticNormalEquations) = length(typeof(eqs))
+Base.length(::Type{<:StaticNormalEquations{N,T}}) where {N,T} = N
 
 to(::Type{NTuple{N,T}}, x::NTuple{N,T}) where {N,T} = x
 to(::Type{NTuple{N,T}}, x::NTuple{N}) where {N,T} = convert(NTuple{N,T}, x)::NTuple{N,T}
@@ -494,23 +522,42 @@ function mcall(::Type{NTuple{N,T}},
     return ntuple(i -> @inbounds(_mcall(T, fns, i, x)), Val(N))::NTuple{N,T}
 end
 
-@generated function lhs_matrix(eqs::StaticNormalEquations{N,T}; readonly::Bool=false) where {N,T}
+@generated function lhs_matrix(eqs::StaticNormalEquations{N,T}) where {N,T}
     A = Expr(:tuple)
     for i in 1:N
-        for j in 1:N
+        for j in 1:N # FIXME use i:N
             k = packed_symmetric_index(i, j, N)
             push!(A.args, :(eqs.A[$k]))
         end
     end
     quote
-        return SMatrix{N,N,T,N*N}($(A))
+        return Symmetric(SMatrix{N,N,T,N*N}($(A)))
     end
 end
 
-rhs_vector(eqs::StaticNormalEquations{N,T}; readonly::Bool=false) where {N,T} =
-    SVector{N,T}(eqs.b)
+rhs_vector(eqs::StaticNormalEquations{N,T}) where {N,T} = SVector{N,T}(eqs.b)
 
-solve!(eqs::StaticNormalEquations) = solve(eqs)
+function solve(eqs::StaticNormalEquations)
+    # There are many different possibilities to solve the normal equations A*x = b
+    # with static arrays. Benchmarking them (with `@noinline`) for 4 normal equations
+    # yields:
+    #
+    #     A\b ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅>  69.747 ns, 0 allocations
+    #     Symmetric(A)\b ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅> 425.899 ns, 11 allocations, 2.54 KiB
+    #     cholesky(A)\b ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅>  25.635 ns, 0 allocations
+    #     cholesky(Symmetric(A))\b ⋅⋅⋅⋅⋅>  21.318 ns, 0 allocations
+    #
+    return cholesky(lhs_matrix(eqs))\rhs_vector(eqs)
+end
+
+function solve!(x::AbstractArray, eqs::StaticNormalEquations)
+    # For static equations, it is sufficient that `x` has suitable number of elements.
+    n = length(eqs.b)
+    length(x) == n || throw_dimension_mismatch(
+        "`x` must have ", n, " element(s), got `length(x) = ", length(x), "`")
+    copyto!(x, solve(eqs))
+    return x
+end
 
 """
     LinearLeastSquares.lazy_convert(T, x) -> x′
@@ -528,5 +575,165 @@ Return a callable object `c` such that `c(x)` yields `lazy_convert(T, x)`.
 
 """
 lazy_convert(::Type{T}) where {T<:Number} = TypeUtils.Converter(lazy_convert, T)
+
+#---------------------------------------------------------------- Mutable normal equations -
+
+"""
+    eqs = NormalEquations{T}(A, b)
+
+Return a writable object `eqs` storing coefficients of type `T` of normal equations whose
+LHS matrix has `(n*(n + 1)) ÷ 2` packed coefficients given by `A` and whose RHS vector has
+`n` coefficients given by `b`. `A` must be a vector with 1-based indices, but `b` may have
+any axes which are assumed to be those of the unknown parameters.
+
+If parameter `T`, the type of the coefficients` is not specified, it is inferred from the
+types of the elements of `A` and `b`.
+
+Both `A` and `b` must be writable (i.e., have mutable elements). Any of `A` or `b` having
+the required element type is shared by the returned `eqs` object. Call the constructor with
+`copy(A)` and/or `copy(b)` to have an object storing the coefficients of the normal
+equations in independent arrays.
+
+See also: [`MutableNormalEquations`](@ref).
+
+"""
+struct NormalEquations{T<:AbstractFloat,LHS<:AbstractVector{T},
+                       RHS<:AbstractArray{T}} <: MutableNormalEquations
+    A::LHS
+    b::RHS
+    function NormalEquations(A::LHS, b::RHS) where {T<:AbstractFloat,
+                                                    LHS<:AbstractVector{T},
+                                                    RHS<:AbstractArray{T}}
+        m = length(A)
+        n = length(b)
+        m == packed_symmetric_length(n) || throw(DimensionMismatch(
+            "expecting $(packed_symmetric_length(n)) packed coefficient(s) for `A`, got `$m`"))
+        firstindex(A) == 1 || throw(ArgumentError(
+            "vector of packed LHS matrix coefficients must have 1-based indices"))
+        return new{T,LHS,RHS}(A, b)
+    end
+end
+
+function NormalEquations{T}(A::AbstractVector, b::AbstractArray) where {T<:AbstractFloat}
+    return NormalEquations(convert_eltype(T, A), convert_eltype(T, b))
+end
+
+function NormalEquations(A::AbstractVector, b::AbstractArray)
+    T = float(promote_type(eltype(A), eltype(b)))
+    return NormalEquations{T}(A, b)
+end
+
+Base.eltype(eqs::NormalEquations) = eltype(typeof(eqs))
+Base.eltype(::Type{<:NormalEquations{N,T}}) where {N,T} = T
+
+Base.length(eqs::NormalEquations) = length(eqs.b)
+
+"""
+    eqs = NormalEquations{T}(shape...)
+
+Return a writable object to store the coefficients of type `T` of normal equations for
+unknowns of array shape `shape...`. The coefficients of the returned object are all set to
+zero.
+
+"""
+function NormalEquations{T}(shape::eltype(ArrayShape)...) where {T}
+    return NormalEquations{T}(shape)
+end
+
+function NormalEquations{T}(shape::ArrayShape) where {T}
+    b = new_array(T, shape)
+    n = length(b)
+    m = packed_symmetric_length(n)
+    A = Memory{T}(undef, m)
+    return zerofill!(NormalEquations(A, b))
+end
+
+function ImageProcessing.zerofill!(eqs::NormalEquations)
+    zerofill!(eqs.A)
+    zerofill!(eqs.b)
+    return eqs
+end
+
+@noinline throw_dimension_mismatch(s::AbstractString) = throw(DimensionMismatch(s))
+@noinline throw_dimension_mismatch(x...) = throw_dimension_mismatch(string(x...))
+
+function lhs_matrix(eqs::NormalEquations{T}) where {T}
+    n = length(eqs)
+    return lhs_matrix!(Array{T}(undef, n, n), eqs)
+end
+
+function lhs_matrix!(A::Symmetric, eqs::NormalEquations)
+    return lhs_matrix!(parent(A), eqs) # strip the `Symmetric` decoration
+end
+
+function lhs_matrix!(A::AbstractMatrix, eqs::NormalEquations)
+    n = length(eqs)
+    check_lhs_matrix(A, n)
+    @inbounds for i in 1:n
+        for j in i:n
+            k = packed_symmetric_index(i, j, n)
+            A[i,j] = eqs.A[k]
+            if j != i
+                A[j,i] = eqs.A[k]
+            end
+        end
+    end
+    return Symmetric(A)
+end
+
+function rhs_vector(eqs::NormalEquations{T}) where {T}
+    return rhs_vector!(new_array(T, axes(eqs.b)), eqs)
+end
+
+function rhs_vector!(b::AbstractArray, eqs::NormalEquations)
+    check_rhs_vector(b, eqs)
+    return copyto!(b, eqs.b)
+end
+
+function solve(eqs::NormalEquations{T}) where {T}
+    return solve!(new_array(T, axes(eqs.b)), eqs)
+end
+
+function solve!(b::AbstractArray{T}, eqs::NormalEquations) where {T}
+    n = length(eqs.n)
+    return solve!(b, eqs, new_array(T, n, n))
+end
+
+function solve!(b::AbstractArray{T}, eqs::NormalEquations, A::AbstractMatrix{T}) where {T}
+    ldiv!(cholesky!(lhs_matrix!(A, eqs)), flatten(rhs_vector!(b, eqs)))
+    return b
+end
+
+function check_lhs_matrix(A::AbstractMatrix, eqs::NormalEquations)
+    check_lhs_matrix(A, length(eqs.b))
+end
+
+function check_lhs_matrix(A::AbstractMatrix, n::Int)
+    axes(A) == (1:n, 1:n) || throw_dimension_mismatch(
+        "LHS matrix `A` must have axes (1:$n,1:$n), got `axes(A) = (",
+        first(axes(A,1)), ":", last(axes(A,1)), ",",
+        first(axes(A,2)), ":", last(axes(A,2)), ")`")
+end
+
+function check_rhs_vector(b::AbstractVector, eqs::NormalEquations)
+    n = length(eqs.b)
+    length(b) == n || throw_dimension_mismatch(
+        "RHS vector `b` must have ", n, " element(s), got `length(b) = ", length(b), "`")
+end
+
+function check_rhs_vector(b::AbstractArray, eqs::NormalEquations)
+    dims = size(eqs.b)
+    size(b) == dims || throw_dimension_mismatch(
+        "RHS vector `b` must have size ", dims, ", got `size(b) = ", size(b), "`")
+end
+
+flatten(A::OffsetArray) = flatten(parent(A))
+flatten(A::Union{Vector,Memory}) = A
+flatten(A::Array) = view(A, :)
+function flatten(A::AbstractArray)
+    v = view(A, :)
+    firstindex(v) == 1 || error("unable to flatten array of type `$(typeof(A))`")
+    return v
+end
 
 end # module
