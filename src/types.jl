@@ -145,6 +145,43 @@ struct ImagePatch{T,N,A<:AbstractArray{Bool,N}} <: AbstractArray{Bool,N}
     end
 end
 
+"""
+    ImageProcessing.AbstractPolynomial
+
+Abstract super-type of objects representing polynomials. These objects are callable (to
+yield the value of the polynomial) and their coefficients can be retrieved by the `coefs`
+property.
+
+See also: [`Parabola2D`](@ref) and [`IsotropicParabola2D`](@ref).
+
+"""
+abstract type AbstractPolynomial <: Function end
+
+# 2-dimensional parabola
+struct Parabola2D{T} <: AbstractPolynomial
+    coefs::NTuple{6,T}
+    Parabola2D{T}(c::NTuple{6,Any}) where {T} = new{T}(c)
+end
+
+# 2-dimensional isotropic parabola
+struct IsotropicParabola2D{T} <: AbstractPolynomial
+    coefs::NTuple{4,T}
+    IsotropicParabola2D{T}(c::NTuple{4,Any}) where {T} = new{T}(c)
+end
+
+# Image feature representing a stationary 2-dimensional point.
+struct StationaryPoint2D{T}
+    origin::Point{2,T} # position of patch
+    point::Point{2,T} # position of stationary point relative to origin
+    value::T # model value at stationary point
+    eigvals::NTuple{2,T} # sorted eigenvalues: λmin, λmax
+    angle::T # direction of largest (in absolute value) eigenvalue
+    function StationaryPoint2D{T}(origin::Point{2}, point::Point{2}, value::Real,
+                                  eigvals::NTuple{2,Real}, angle::Real) where {T}
+        return new{T}(origin, point, value, eigvals, angle)
+    end
+end
+
 struct OnlineSum{T,N,A<:AbstractArray{<:Any,N},B<:AbstractArray{<:Any,N}}
     den::A # array to store the integrated denominator
     num::B # array to store the integrated numerator

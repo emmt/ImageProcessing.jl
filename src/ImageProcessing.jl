@@ -43,12 +43,18 @@ export
 using Backport
 @backport
 
+@public(
+    AbstractPolynomial,
+    find,
+)
+
 using EasyRanges
 using InterpolationKernels
 using LinearAlgebra
 using Neutrals
 using OffsetArrays
 using Reexport
+using StaticArrays
 using Statistics
 using StructuredArrays
 using TypeUtils
@@ -66,6 +72,7 @@ include("points.jl")
 include("boxes.jl")
 include("arithmetic.jl")
 include("patches.jl")
+include("parabola.jl")
 include("centroiding.jl")
 include("onlinesum.jl")
 
