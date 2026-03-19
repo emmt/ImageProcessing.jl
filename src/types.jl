@@ -137,7 +137,7 @@ const BoundingBoxLike{N} = Union{BoundingBox{N},CartesianIndices{N},NTuple{N,Int
 const ContiguousCartesianIndices{N} =
     CartesianIndices{N,<:NTuple{N,AbstractUnitRange{<:Integer}}}
 
-struct ImagePatch{T,N,A<:AbstractArray{Bool,N}}
+struct ImagePatch{T,N,A<:AbstractArray{Bool,N}} <: AbstractArray{Bool,N}
     mask::A
     origin::Point{N,T}
     function ImagePatch{T}(mask::A, origin::Point{N}) where {T,N,A<:AbstractArray{Bool,N}}
