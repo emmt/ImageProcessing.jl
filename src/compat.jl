@@ -19,3 +19,7 @@
     end
     (obj::Returns)(@nospecialize(args...); @nospecialize(kwds...)) = getfield(obj, :value)
 end
+
+@static if !isdefined(Base, :Memory)
+    const Memory{T} = Vector{T}
+end
