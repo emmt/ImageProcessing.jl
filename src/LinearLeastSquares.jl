@@ -78,6 +78,21 @@ end
 c = solve(eqs)
 ```
 
+These examples are kept simple to illustrate the principles. If a tuple of model function is
+used, it is better to use a *function barrier* to specialize the update loop:
+
+```julia
+function build_normal_equations(W, X, Y, fns::NTuple{N,Function}) where {N}
+    eqs = StaticNormalEquations{N,Float64}()
+    for (w, x, y) in zip(W, X, Y)
+        eqs = update(eqs, w, y, fns, x)
+    end
+    return eqs
+end
+eqs = build_normal_equations(W, X, Y, (x -> 1.0, identity, sin))
+c = solve(eqs)
+```
+
 """
 module LinearLeastSquares
 
@@ -490,36 +505,34 @@ end
 @noinline throw_invalid_weights(w::Real) =
     throw(ArgumentError("weights must all be finite and nonnegative, got $w"))
 
-# Model components specified as a tuple (or vector) of function followed by the independent
-# variable.
+# Model components specified as a tuple of functions followed by the independent variable.
 function update(eqs::StaticNormalEquations{N,T}, y::Real,
-                fns::Tuple{Vararg{Function}}, x; weight::Real=ONE) where {N,T<:AbstractFloat}
+                        fns::Tuple{Vararg{Function}}, x;
+                        weight::Real=ONE) where {N,T<:AbstractFloat}
     return update(eqs, weight, y, fns, x)
 end
-function update(eqs::StaticNormalEquations{N,T}, w::Real, y::Real,
-                fns::Tuple{Vararg{Function}}, x) where {N,T<:AbstractFloat}
-    return update(eqs, w, y, mcall(NTuple{N,T}, fns, x))
+
+@generated function update(eqs::StaticNormalEquations{N,T}, w::Real, y::Real,
+                           fns::NTuple{N,Function}, x) where {N,T<:AbstractFloat}
+    expr = Expr(:tuple)
+    for i in 1:N
+        fx = if x <: Tuple
+            :(convert(T, fns[$i](x...)))
+        else
+            :(convert(T, fns[$i](x)))
+        end
+        push!(expr.args, fx)
+    end
+    quote
+        return update(eqs, w, y, $expr)
+    end
 end
 
-@propagate_inbounds function _mcall(::Type{T}, fns::Indexable{<:Function},
-                                    i::Int, x) where {T}
-    return convert(T, fns[i](x))::T
-end
-@propagate_inbounds function _mcall(::Type{T}, fns::Indexable{<:Function},
-                                    i::Int, x::Tuple) where {T}
-    return convert(T, fns[i](x...))::T
-end
-
-function mcall(::Type{NTuple{N,T}},
-               fns::NTuple{N,Function}, x) where {N,T<:AbstractFloat}
-    return ntuple(i -> _mcall(T, fns, i, x), Val(N))::NTuple{N,T}
-end
-
-function mcall(::Type{NTuple{N,T}},
-               fns::Indexable{<:Function}, x) where {N,T<:AbstractFloat}
-    length(fns) == N || throw(DimensionMismatch(
+# error catcher
+@noinline function update(eqs::StaticNormalEquations{N,T}, w::Real, y::Real,
+                          fns::Tuple{Vararg{Function}}, x) where {N,T<:AbstractFloat}
+    throw(DimensionMismatch(
         "expecting $N model function(s), got $(length(fns))"))
-    return ntuple(i -> @inbounds(_mcall(T, fns, i, x)), Val(N))::NTuple{N,T}
 end
 
 @generated function lhs_matrix(eqs::StaticNormalEquations{N,T}) where {N,T}
