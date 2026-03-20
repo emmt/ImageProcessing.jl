@@ -15,6 +15,8 @@ export
     StationaryPoint2D,
     center_of_gravity,
     endpoints,
+    is_strictly_concave,
+    is_strictly_convex,
     hard_thresholder,
     nonnegative_part,
     patch_origin,

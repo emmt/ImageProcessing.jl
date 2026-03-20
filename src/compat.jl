@@ -23,3 +23,16 @@ end
 @static if !isdefined(Base, :Memory)
     const Memory{T} = Vector{T}
 end
+
+@static if !isdefined(Base, :ispositive)
+    ispositive(x) = x > zero(x)
+end
+@static if !isdefined(Base, :isnegative)
+    isnegative(x) = x < zero(x)
+end
+@static if !isdefined(Base, :isnonpositive)
+    isnonpositive(x) = !isnegative(x)
+end
+@static if !isdefined(Base, :isnonnegative)
+    isnonnegative(x) = !ispositive(x)
+end

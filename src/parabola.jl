@@ -110,6 +110,34 @@ function Base.show(io::IO, m::MIME"text/plain", f::AbstractPolynomial)
 end
 
 """
+    is_strictly_concave(f)
+
+Return whether model function `f` is strictly concave and therefore has a single maximum.
+
+"""
+function is_strictly_concave(f::IsotropicParabola2D)
+    return isnegative(f[4])
+end
+function is_strictly_concave(f::Parabola2D)
+    c4, c5, c6 = f[4:6]
+    return isnegative(c4) & isnegative(c6) & (4*c4*c6 > c5^2)
+end
+
+"""
+    is_strictly_convex(f)
+
+Return whether model function `f` is strictly convex and therefore has a single minimum.
+
+"""
+function is_strictly_convex(f::IsotropicParabola2D)
+    return ispositive(f[4])
+end
+function is_strictly_convex(f::Parabola2D)
+    c4, c5, c6 = f[4:6]
+    return ispositive(c4) & ispositive(c6) & (4*c4*c6 > c5^2)
+end
+
+"""
     eqs = ImageProcessing.IsotropicParabola2DNormalEquations{T}()
     eqs = StaticNormalEquations(IsotropicParabola2D{T})
 

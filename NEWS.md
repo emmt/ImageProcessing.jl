@@ -48,6 +48,8 @@
 
 - New sub-module `LinearLeastSquares`.
 
+- New functions `is_strictly_concave` and `is_strictly_convex`.
+
 # Version 0.2.0
 
 - New exported function `new_array(T, args...)` to build an array with undefined elements
