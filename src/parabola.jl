@@ -87,6 +87,9 @@ for (type, N) in ((:Parabola2D, 6), (:IsotropicParabola2D, 4))
         Base.:(+)(a::$type, b::$type) = $type(map(+, a.coefs, b.coefs))
         Base.:(-)(a::$type, b::$type) = $type(map(-, a.coefs, b.coefs))
 
+        # f[i] syntax to index the coefficients.
+        @propagate_inbounds Base.getindex(A::$type, i) = getindex(Tuple(f), i)
+
         # Neutral element for addition of polynomials.
         Base.zero(f::$type{T}) where {T} = $type(ntuple(Returns(zero(T)), Val{$N}()))
 
@@ -191,7 +194,7 @@ function StationaryPoint2D(origin::Point{2,R},
 end
 
 function StationaryPoint2D{T}(origin::Point{2}, f::Parabola2D) where {T}
-    c2, c3, c4, c5, c6 = map(as(T), Tuple(f)[2:6])
+    c2, c3, c4, c5, c6 = map(as(T), f[2:6])
 
     # Position of stationary point.
     delta = 4*c4*c6 - c5^2
@@ -216,7 +219,7 @@ function StationaryPoint2D{T}(origin::Point{2}, f::Parabola2D) where {T}
 end
 
 function StationaryPoint2D{T}(origin::Point{2}, f::IsotropicParabola2D) where {T}
-    c2, c3, c4 = map(as(T), Tuple(f)[2:4])
+    c2, c3, c4 = map(as(T), f[2:4])
     λ = 2*c4 # eigenvalue of Hessian matrix
     x = -c2/λ
     y = -c3/λ
