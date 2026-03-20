@@ -437,7 +437,7 @@ Base.in(p::AbstractPoint{N}, B::BoundingBox{N}) where {N} =
 # Inclusion of a point in Cartesian indices. FIXME: uses R.indices.
 Base.in(x::AbstractPoint,    R::CartesianIndices) = false
 Base.in(x::AbstractPoint{N}, R::CartesianIndices{N}) where {N} =
-    has_integer_coordinates(A) && all_between(Tuple(x), Tuple(first(R)), Tuple(last(R)))
+    has_integer_coordinates(x) && all_between(Tuple(x), Tuple(first(R)), Tuple(last(R)))
 
 # Inclusion of a Cartesian index in a bounding-box.
 Base.in(A::CartesianIndex,    B::BoundingBox) = false
