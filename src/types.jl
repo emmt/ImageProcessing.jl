@@ -163,10 +163,46 @@ struct Parabola2D{T} <: AbstractPolynomial
     Parabola2D{T}(c::NTuple{6,Any}) where {T} = new{T}(c)
 end
 
+struct Parabola2DNormalEquations{T} <: ImmutableNormalEquations{6}
+    # The normal equations to fit a 2-dimensional parabola have only 21 values to sum. This
+    # is less than the 27 values required by a 6-parameter model because of redundancies.
+
+    # Coefficients of LHS matrix A.
+    sw     :: T
+    swx    :: T
+    swxy   :: T
+    swxy²  :: T
+    swxy³  :: T
+    swx²   :: T
+    swx²y  :: T
+    swx²y² :: T
+    swx³   :: T
+    swx³y  :: T
+    swx⁴   :: T
+    swy    :: T
+    swy²   :: T
+    swy³   :: T
+    swy⁴   :: T
+    # Coefficients of RHS vector b.
+    swz    :: T
+    swzx   :: T
+    swzy   :: T
+    swzx²  :: T
+    swzxy  :: T
+    swzy²  :: T
+end
+
 # 2-dimensional isotropic parabola
 struct IsotropicParabola2D{T} <: AbstractPolynomial
     coefs::NTuple{4,T}
     IsotropicParabola2D{T}(c::NTuple{4,Any}) where {T} = new{T}(c)
+end
+
+struct IsotropicParabola2DNormalEquations{T} <: ImmutableNormalEquations{4}
+    # The normal equations to fit a 2-dimensional isotropic parabola are the same
+    # as for a linear model with 4 basis functions: f₁(x,y) -> 1, f₂(x,y) -> x,
+    # f₃(x,y) -> y, and f₄(x,y) -> r² = x² + y². Hence we just wrap the common structure.
+    parent::StaticNormalEquations{4,T,10}
 end
 
 # Image feature representing a stationary 2-dimensional point.

@@ -65,6 +65,29 @@ import InterpolationKernels: infimum, supremum
 import TypeUtils: nearest, new_array
 
 include("compat.jl")
+
+function zerofill! end
+
+include("LinearLeastSquares.jl")
+@reexport import .LinearLeastSquares:
+    AbstractNormalEquations,
+    ImmutableNormalEquations,
+    LinearLeastSquares,
+    MutableNormalEquations,
+    NormalEquations,
+    StaticNormalEquations,
+    rhs_vector,
+    rhs_vector!,
+    lhs_matrix,
+    lhs_matrix!,
+    solve,
+    solve!,
+    update,
+    update!
+
+using .LinearLeastSquares:
+    lazy_convert
+
 include("types.jl")
 include("utils.jl")
 include("intervals.jl")
@@ -75,21 +98,5 @@ include("patches.jl")
 include("parabola.jl")
 include("centroiding.jl")
 include("onlinesum.jl")
-
-include("LinearLeastSquares.jl")
-@reexport import .LinearLeastSquares:
-    LinearLeastSquares,
-    AbstractNormalEquations,
-    StaticNormalEquations,
-    MutableNormalEquations,
-    NormalEquations,
-    rhs_vector,
-    rhs_vector!,
-    lhs_matrix,
-    lhs_matrix!,
-    solve,
-    solve!,
-    update,
-    update!
 
 end # module

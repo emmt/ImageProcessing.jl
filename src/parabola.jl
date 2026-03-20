@@ -110,6 +110,162 @@ function Base.show(io::IO, m::MIME"text/plain", f::AbstractPolynomial)
 end
 
 """
+    eqs = ImageProcessing.IsotropicParabola2DNormalEquations{T}()
+    eqs = StaticNormalEquations(IsotropicParabola2D{T})
+
+Return a zero-filled object storing the coefficients of type `T` of the normal equations for
+fitting a 2-dimensional isotropic parabola.
+
+Updating `eqs` is done by one of:
+
+```julia
+eqs = update(eqs, x, y, z; weight=w)
+eqs = update(eqs, w, x, y, z)
+```
+
+with `(x,y)` the 2-dimensional coordinate of observed value `z` and `w ≥ 0` an associated
+weight. If not specified, `w` is assumed to be one.
+
+"""
+function IsotropicParabola2DNormalEquations{T}() where {T}
+    return IsotropicParabola2DNormalEquations(StaticNormalEquations{4,T,10}())
+end
+
+function LinearLeastSquares.StaticNormalEquations(::Type{<:IsotropicParabola2D{T}}) where {T}
+    return IsotropicParabola2DNormalEquations{T}()
+end
+
+function LinearLeastSquares.update(eqs::IsotropicParabola2DNormalEquations{T},
+                                   x, y, z; weight=ONE) where {T}
+    return update(eqs, weight, x, y, z)
+end
+
+function LinearLeastSquares.update(eqs::IsotropicParabola2DNormalEquations{T}, w::Real,
+                                   x::Real, y::Real, z::Real) where {T<:AbstractFloat}
+    # x, y, and z must be of type T, w is converted later if needed
+    return update(eqs, w, convert(T, x), convert(T, z), convert(T, z))
+end
+
+function LinearLeastSquares.update(eqs::IsotropicParabola2DNormalEquations{T}, w::Real,
+                                   x::T, y::T, z::T) where {T<:AbstractFloat}
+    return IsotropicParabola2DNormalEquations{T}(
+        # isotropic parabola model writes: c₁ + c₂*x + c₃*y + c₄*(x^2 + y^2)
+        update(eqs.parent, lazy_convert(T, w), z, (ONE, x, y, x^2 + y^2)))
+end
+
+function LinearLeastSquares.lhs_matrix(eqs::IsotropicParabola2DNormalEquations{T}) where {T}
+    return lhs_matrix(eqs.parent)
+end
+
+function LinearLeastSquares.rhs_vector(eqs::IsotropicParabola2DNormalEquations{T}) where {T}
+    return rhs_vector(eqs.parent)
+end
+
+function LinearLeastSquares.solve(eqs::IsotropicParabola2DNormalEquations{T}) where {T}
+    return IsotropicParabola2D{T}(Tuple(solve(eqs.parent)))
+end
+
+"""
+    eqs = ImageProcessing.Parabola2DNormalEquations{T}()
+    eqs = StaticNormalEquations(Parabola2D{T})
+
+Return a zero-filled object storing the coefficients of type `T` of the normal equations for
+fitting a 2-dimensional parabola.
+
+Updating `eqs` is done by one of:
+
+```julia
+eqs = update(eqs, x, y, z; weight=w)
+eqs = update(eqs, w, x, y, z)
+```
+
+with `(x,y)` the 2-dimensional coordinate of observed value `z` and `w ≥ 0` an associated
+weight. If not specified, `w` is assumed to be one.
+
+"""
+function Parabola2DNormalEquations{T}() where {T}
+    z = zero(T)
+    return Parabola2DNormalEquations{T}(z, z, z, z, z, z, z,
+                                        z, z, z, z, z, z, z,
+                                        z, z, z, z, z, z, z)
+end
+
+function LinearLeastSquares.StaticNormalEquations(::Type{<:Parabola2D{T}}) where {T}
+    return Parabola2DNormalEquations{T}()
+end
+
+function LinearLeastSquares.update(eqs::Parabola2DNormalEquations{T},
+                                   x, y, z; weight=ONE) where {T}
+    return update(eqs, weight, x, y, z)
+end
+
+function LinearLeastSquares.update(eqs::Parabola2DNormalEquations{T},
+                                   w, x, y, z) where {T}
+    return update(eqs, lazy_convert(T, w), convert(T, x), convert(T, z), convert(T, z))
+end
+
+function LinearLeastSquares.update(eqs::Parabola2DNormalEquations{T},
+                                   w::LinearLeastSquares.Weight{T},
+                                   x::T, y::T, z::T) where {T}
+    (w > zero(w) && isfinite(z)) || return eqs
+    wx = w*x
+    wy = w*y
+    wz = w*convert(T, z)
+    x² = x*x
+    xy = x*y
+    y² = y*y
+    wx² = w*x²
+    wxy = w*xy
+    wy² = w*y²
+    return Parabola2DNormalEquations{T}(
+        # Integrate coefficients of LHS matrix A.
+        eqs.sw     + w,
+        eqs.swx    + wx,
+        eqs.swxy   + wxy,
+        eqs.swxy²  + wxy*y,
+        eqs.swxy³  + wxy*y²,
+        eqs.swx²   + wx²,
+        eqs.swx²y  + wx²*y,
+        eqs.swx²y² + wx²*y²,
+        eqs.swx³   + wx²*x,
+        eqs.swx³y  + wx²*xy,
+        eqs.swx⁴   + wx²*x²,
+        eqs.swy    + wy,
+        eqs.swy²   + wy²,
+        eqs.swy³   + wy²*y,
+        eqs.swy⁴   + wy²*y²,
+        # Integrate coefficients of RHS vector b.
+        eqs.swz    + wz,
+        eqs.swzx   + wz*x,
+        eqs.swzy   + wz*y,
+        eqs.swzx²  + wz*x²,
+        eqs.swzxy  + wz*xy,
+        eqs.swzy²  + wz*y²)
+end
+
+function LinearLeastSquares.lhs_matrix(eqs::Parabola2DNormalEquations{T}) where {T}
+    return SMatrix{6,6,T,36}(
+        #=          1         x          y           x²          xy          y²    =#
+        #= 1  =# eqs.sw,   eqs.swx,   eqs.swy,    eqs.swx²,   eqs.swxy,   eqs.swy²,
+        #= x  =# eqs.swx,  eqs.swx²,  eqs.swxy,   eqs.swx³,   eqs.swx²y,  eqs.swxy²,
+        #= y  =# eqs.swy,  eqs.swxy,  eqs.swy²,   eqs.swx²y,  eqs.swxy²,  eqs.swy³,
+        #= x² =# eqs.swx², eqs.swx³,  eqs.swx²y,  eqs.swx⁴,   eqs.swx³y,  eqs.swx²y²,
+        #= xy =# eqs.swxy, eqs.swx²y, eqs.swxy²,  eqs.swx³y,  eqs.swx²y², eqs.swxy³,
+        #= y² =# eqs.swy², eqs.swxy², eqs.swy³,   eqs.swx²y², eqs.swxy³,  eqs.swy⁴,
+    )
+end
+
+function LinearLeastSquares.rhs_vector(eqs::Parabola2DNormalEquations{T}) where {T}
+    return SVector{6,T}(
+        #=    =# eqs.swz,  eqs.swzx,  eqs.swzy,   eqs.swzx²,  eqs.swzxy,  eqs.swzy²,
+    )
+end
+
+function LinearLeastSquares.solve(eqs::Parabola2DNormalEquations{T}) where {T}
+    return Parabola2D{T}(Tuple(cholesky(lhs_matrix(eqs))\rhs_vector(eqs)))
+end
+
+"""
     StationaryPoint2D{T}(origin, point, value, eigvals, angle)
 
 Return an image feature descriptor representing a 2-dimensional stationary point.
