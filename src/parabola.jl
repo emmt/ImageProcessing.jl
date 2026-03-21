@@ -88,7 +88,7 @@ for (type, N) in ((:Parabola2D, 6), (:IsotropicParabola2D, 4))
         Base.:(-)(a::$type, b::$type) = $type(map(-, a.coefs, b.coefs))
 
         # f[i] syntax to index the coefficients.
-        @propagate_inbounds Base.getindex(A::$type, i) = getindex(Tuple(f), i)
+        @propagate_inbounds Base.getindex(f::$type, i) = getindex(Tuple(f), i)
 
         # Neutral element for addition of polynomials.
         Base.zero(f::$type{T}) where {T} = $type(ntuple(Returns(zero(T)), Val{$N}()))
@@ -171,7 +171,7 @@ end
 function LinearLeastSquares.update(eqs::IsotropicParabola2DNormalEquations{T}, w::Real,
                                    x::Real, y::Real, z::Real) where {T<:AbstractFloat}
     # x, y, and z must be of type T, w is converted later if needed
-    return update(eqs, w, convert(T, x), convert(T, z), convert(T, z))
+    return update(eqs, w, convert(T, x), convert(T, y), convert(T, z))
 end
 
 function LinearLeastSquares.update(eqs::IsotropicParabola2DNormalEquations{T}, w::Real,
@@ -229,7 +229,7 @@ end
 
 function LinearLeastSquares.update(eqs::Parabola2DNormalEquations{T},
                                    w, x, y, z) where {T}
-    return update(eqs, lazy_convert(T, w), convert(T, x), convert(T, z), convert(T, z))
+    return update(eqs, lazy_convert(T, w), convert(T, x), convert(T, y), convert(T, z))
 end
 
 function LinearLeastSquares.update(eqs::Parabola2DNormalEquations{T},
