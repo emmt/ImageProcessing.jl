@@ -65,8 +65,10 @@ for (type, N) in ((:Parabola2D, 6), (:IsotropicParabola2D, 4))
         Base.convert(::Type{T}, x) where {T<:$type} = T(x)::T
 
         TypeUtils.get_precision(::Type{$type{T}}) where {T} = get_precision(T)
-        TypeUtils.adapt_precision(::Type{T}, f::$type{S}) where {T<:TypeUtils.Precision,S} =
-            $type{adapt_precision(T, S)}(f)
+        TypeUtils.adapt_precision(::Type{T}, ::Type{$type{S}}) where {T<:Precision,S} =
+            $type{adapt_precision(T, S)}
+        TypeUtils.adapt_precision(::Type{T}, f::$type) where {T<:Precision} =
+            adapt_precision(T, typeof(f))(f)
 
         # Broadcasting and mapping of some functions on polynomials.
         Broadcast.broadcasted(::Type{T}, f::$type) where {T} = $type{T}(f)

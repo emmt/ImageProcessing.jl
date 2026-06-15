@@ -101,10 +101,27 @@ Base.Tuple(p::Point) = values(p)
 
 # An integer-valued point can be automatically converted into a Cartesian index
 # in some common situations.
+const ArrayIndex = Union{Integer,CartesianIndex,Point{N,<:Integer} where N}
+const ArrayIndices = Tuple{ArrayIndex,Vararg{ArrayIndex}}
+
 @propagate_inbounds Base.getindex(A::AbstractArray, I::Point{N,<:Integer}) where {N} =
     getindex(A, CartesianIndex(I))
+#@propagate_inbounds Base.getindex(A::AbstractArray, I::ArrayIndices) =
+#    getindex(A, map(to_array_index, I)...)
+#
 @propagate_inbounds Base.setindex!(A::AbstractArray, x, I::Point{N,<:Integer}) where {N} =
     setindex!(A, x, CartesianIndex(I))
+#@propagate_inbounds Base.setindex!(A::AbstractArray, x, I::ArrayIndices) =
+#    setindex!(A, x, map(to_array_index, I)...)
+
+## Convert to canonical (non-point) array index.
+#to_array_index(i::Int) = i
+#to_array_index(i::Integer) = as(Int, i)
+#to_array_index(i::CartesianIndex) = Tuple(i)
+#to_array_index(i::Point{N,<:Integer}) where {N} = map(as(Int), i.coords)#CartesianIndex(i)
+##Base.to_index(i::Point{N,<:Integer}) where {N} = CartesianIndex(i)#map(as(Int), i.coords)
+##Base.to_indices(A::AbstractArray, I::ArrayIndices) = map(to_array_index, I)
+
 
 #-----------------------------------------------------------------------------------------
 # Even though a point is not an abstract vector of coordinates, implement a subset of the

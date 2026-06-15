@@ -64,7 +64,11 @@ using TypeUtils
 using EasyRanges: ranges
 using Base: @propagate_inbounds, Fix1, Fix2
 import InterpolationKernels: infimum, supremum
-import TypeUtils: nearest, new_array
+using TypeUtils:
+    Precision
+import TypeUtils:
+    nearest,
+    new_array
 
 include("compat.jl")
 

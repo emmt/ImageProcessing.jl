@@ -435,15 +435,52 @@ build(::Type{CartesianIndices}, start::CartesianIndex{N}, stop::CartesianIndex{N
     end
 
     @testset "Boxes" begin
-        # 0-dimensional box.
+        # 0-dimensional boxes.
         @test_throws ErrorException BoundingBox()
         @test_throws ErrorException BoundingBox{0}()
         B = @inferred BoundingBox{0,Int16}()
+        @test sort!([:intervals,:start,:stop]) == sort!([propertynames(B)...])
         @test B.start == B.stop == Point{0,Int16}()
         @test B.intervals == ()
         @test !isempty(B)
         @test eltype(B) == Point{0,Int16}
-        # 1-dimensional box.
+        s = sprint(show, B)
+        @test startswith(s, "BoundingBox{")
+
+        # 1-dimensional boxes.
+        start = Point(0)
+        stop = Point(2.0f0)
+        B = @inferred BoundingBox(start, stop)
+        @test B isa BoundingBox{1,Float32}
+        @test B.start == start
+        @test B.stop == stop
+
+        # 2-dimensional boxes.
+        start = CartesianIndex((-1,0))
+        stop = CartesianIndex((2,3))
+        B = @inferred BoundingBox(start, stop)
+        @test B isa BoundingBox{2,Int}
+        @test B.start == start
+        @test B.stop == stop
+        @test B.intervals === (Interval(-1,2),Interval(0,3))
+        @test (-1:2, 0:3) === @inferred as_array_axes(B)
+        R = CartesianIndices((-1:2, 0:3))
+        @test R === @inferred CartesianIndices ∩ B
+        @test R === @inferred B ∩ CartesianIndices
+        @test B === @inferred BoundingBox(R)
+        @test B === @inferred BoundingBox{2}(R)
+        @test B === @inferred BoundingBox{2,Int}(R)
+        A = @inferred fill(1.5f0, B)
+        @test A isa AbstractArray{Float32,2}
+        @test axes(A) == @inferred as_array_axes(B)
+        @test all(isequal(1.5f0), A)
+        #
+        start = Point(0,-1)
+        stop = Point(2.0f0,4.0f0)
+        B = @inferred BoundingBox(start, stop)
+        @test B isa BoundingBox{2,Float32}
+        @test B.start == start
+        @test B.stop == stop
         for rngs in ((0x2:0x3,), (Base.OneTo(7), Int16(-1):Int16(4),))
             N = length(rngs)
             T = promote_type(map(eltype, rngs)...)
