@@ -25,10 +25,10 @@ Neutrals = "0.3.5, 0.4"
 OffsetArrays = "1.14.1"
 Reexport = "1.2.2"
 StaticArrays = "1.9.18"
+Statistics = "1.11.1"
 StructuredArrays = "0.2.18"
 TypeUtils = "1.4.2, 2.0"
 julia = "1"
-
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
